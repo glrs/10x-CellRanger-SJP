@@ -135,9 +135,9 @@ def arg_input():
                         choices=['mm', 'hg'], dest='reference_genome',
                         help='Choose a reference genome [mouse, human]')
 
-    group_vars.add_argument('-P', '--project-name', required=True, metavar='',
-                        dest='project_name',
-                        help='Provide the name of the Project folder.')
+    # group_vars.add_argument('-P', '--project-name', required=True, metavar='',
+    #                     dest='project_name',
+    #                     help='Provide the name of the Project folder.')
 
     group_vars.add_argument('-s', '--samplesheet', required=True, metavar='',
                         dest='samplesheet_name',
@@ -153,11 +153,17 @@ def arg_input():
 
     args = parser.parse_args()
 
-    #print(args)
+    hiseq_project = os.path.basename(args.hiseq_datapath)
 
     if args.output is None:
-        args.output = args.project_name + '_script.sh'
+        args.output = hiseq_project + '_script.sh'
+        # args.output = args.project_name + '_script.sh'
 
+
+    # TODO: Add a function that generates the project folder. Maybe it's subfolders too.
+    build_project_structure(hiseq_project)
+
+    # Edit the template file to generate the desired script
     edit_template(args)
 
     # Add arguments to the parser
@@ -165,9 +171,38 @@ def arg_input():
     # parser.add_argument()
 
 
+def build_project_structure(project_name):
+    """
+    This function creates the folder structure to support a new project.
+    """
+
+    # Move the working directory to the local root folder
+    os.chdir(os.path.dirname(sys.path[0]))
+
+    if not os.path.isdir(os.getcwd() + "/Projects"):
+        print("Directory 'Projects' could not be find in the current directory.")
+        print("Make sure the script is located in the 'scripts' folder.")
+        exit(2)
+
+    # Form the name of the folders to be created
+    projects_dir = "Projects/" + "project_" + project_name
+
+    fastq_dir = projects_dir + "/fastqs"
+    count_dir = projects_dir + "/counts"
+    meta_dir  = projects_dir + "/metadata"
+
+    # Create the folders
+    os.mkdir(projects_dir)
+
+    os.mkdir(fastq_dir)
+    os.mkdir(count_dir)
+    os.mkdir(meta_dir)
+
+
+
 def edit_template(args, template=None):
     """
-    This function will create a new file based on a (given) template,
+    This function creates a new file based on a (given) template,
     placing the appropriate given arguments in the right place.
     """
 
@@ -179,6 +214,10 @@ def edit_template(args, template=None):
 
     if template is None:
         template = "template_script.sh"
+
+    if template == args.output or template == "template_script.sh":
+        print("The output name should NOT be the same as the template script.")
+        exit(1)
 
     with open(template, 'r') as template:
         template_buf = iter(template.readlines())
