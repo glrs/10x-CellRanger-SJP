@@ -4,7 +4,7 @@ import os
 import sys
 import argparse
 import textwrap
-import subprocess
+import itertools
 
 
 def interactive_input():
@@ -136,10 +136,6 @@ def arg_input():
                         choices=['mm', 'hg'], dest='reference_genome',
                         help='Choose a reference genome [mouse, human]')
 
-    # group_vars.add_argument('-P', '--project-name', required=True, metavar='',
-    #                     dest='project_name',
-    #                     help='Provide the name of the Project folder.')
-
     group_vars.add_argument('-s', '--samplesheet', required=True, metavar='',
                         dest='samplesheet_name',
                         help='Provide the name of the metadata samplesheet.')
@@ -153,6 +149,17 @@ def arg_input():
                         version='%(prog)s 1.0')
 
     args = parser.parse_args()
+
+
+    # -- Argument Checks and Corrections --
+
+    # Format Job description string properly
+    args.job_description = args.job_description.replace(' ', '_')
+
+    # Check if the given hiseq data path is valid.
+    if not os.path.exists(args.hiseq_datapath):
+        print("The hiseq data-path you provided is not valid. Exiting...")
+        exit(1)
 
     # Take the hiseq project name from the given hiseq path
     hiseq_project = os.path.basename(args.hiseq_datapath)
@@ -170,10 +177,6 @@ def arg_input():
 
     # Edit the template file to generate the desired script
     edit_template(args)
-
-    # Add arguments to the parser
-    # parser.add_argument()
-    # parser.add_argument()
 
 
 def build_project_structure(project_name=None):
@@ -194,20 +197,21 @@ def build_project_structure(project_name=None):
         print("Make sure the script is located in the 'scripts' folder.")
         exit(3)
 
-    # Form the name of the folders to be created
+    # Form the name of the project folder to be created
     projects_dir = "Projects/" + "project_" + project_name
-
-    fastq_dir = projects_dir + "/fastqs"
-    count_dir = projects_dir + "/counts"
-    meta_dir  = projects_dir + "/metadata"
 
     # Check if a folder with the given name already exists
     # If exists, try suffixing with an ascending number
-    count = 1
+    count = itertools.count(1)
     while os.path.exists(projects_dir):
         print("A folder with the given project name, already exists.")
-        projects_dir = projects_dir + '_' + count++
+        projects_dir = '_'.join(projects_dir.split('_')[:2]) + '_' + str(count.next())
         print("Trying: " + projects_dir)
+
+    # Form the name of the necessary folders in the project dir
+    fastq_dir = projects_dir + "/fastqs"
+    count_dir = projects_dir + "/counts"
+    meta_dir  = projects_dir + "/metadata"
 
     # Try to create a project folder
     try:
@@ -218,6 +222,9 @@ def build_project_structure(project_name=None):
         os.mkdir(fastq_dir)
         os.mkdir(count_dir)
         os.mkdir(meta_dir)
+
+    # Change directory back to the script's original dir
+    os.chdir(sys.path[0])
 
 
 def edit_template(args, template=None):
@@ -230,14 +237,14 @@ def edit_template(args, template=None):
     #args_keys = set(["?" + str for str in args_dict.keys()])
     args_keys = set(args_dict.keys())
 
-    print(args_keys)
+    #print(args_keys)
 
     if template is None:
         template = "template_script.sh"
 
-    if template == args.output or template == "template_script.sh":
+    if args.output == template or args.output == "template_script.sh":
         print("The output name should NOT be the same as the template script.")
-        exit(1)
+        exit(5)
 
     with open(template, 'r') as template:
         template_buf = iter(template.readlines())
@@ -249,7 +256,7 @@ def edit_template(args, template=None):
                 lineplit = line[1:].split()
 
                 arg_match = args_keys.intersection(lineplit)
-                print(arg_match)
+                # print(arg_match)
                 if arg_match and len(arg_match) == 1:
                     arg_val = args_dict[list(arg_match)[0]]
                     if arg_val is None:
