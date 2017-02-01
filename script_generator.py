@@ -4,6 +4,7 @@ import os
 import sys
 import argparse
 import textwrap
+import subprocess
 
 
 def interactive_input():
@@ -153,15 +154,19 @@ def arg_input():
 
     args = parser.parse_args()
 
+    # Take the hiseq project name from the given hiseq path
     hiseq_project = os.path.basename(args.hiseq_datapath)
 
+    # Extract project name by keeping the last part, starting from the 2nd char
+    project_name = hiseq_project.split('_')[-1][1:]
+
+    # If no name given for the generated script, use the hiseq project name
     if args.output is None:
-        args.output = hiseq_project + '_script.sh'
-        # args.output = args.project_name + '_script.sh'
+        args.output = project_name + '_script.sh'
 
 
     # TODO: Add a function that generates the project folder. Maybe it's subfolders too.
-    build_project_structure(hiseq_project)
+    build_project_structure(project_name)
 
     # Edit the template file to generate the desired script
     edit_template(args)
@@ -171,18 +176,23 @@ def arg_input():
     # parser.add_argument()
 
 
-def build_project_structure(project_name):
+def build_project_structure(project_name=None):
     """
     This function creates the folder structure to support a new project.
     """
 
+    # Check if a project name is given
+    if project_name is None:
+        print("No project name given.")
+        exit(2)
+
     # Move the working directory to the local root folder
     os.chdir(os.path.dirname(sys.path[0]))
 
-    if not os.path.isdir(os.getcwd() + "/Projects"):
+    if not os.path.exists(os.getcwd() + "/Projects"):
         print("Directory 'Projects' could not be find in the current directory.")
         print("Make sure the script is located in the 'scripts' folder.")
-        exit(2)
+        exit(3)
 
     # Form the name of the folders to be created
     projects_dir = "Projects/" + "project_" + project_name
@@ -191,13 +201,23 @@ def build_project_structure(project_name):
     count_dir = projects_dir + "/counts"
     meta_dir  = projects_dir + "/metadata"
 
-    # Create the folders
-    os.mkdir(projects_dir)
+    # Check if a folder with the given name already exists
+    # If exists, try suffixing with an ascending number
+    count = 1
+    while os.path.exists(projects_dir):
+        print("A folder with the given project name, already exists.")
+        projects_dir = projects_dir + '_' + count++
+        print("Trying: " + projects_dir)
 
-    os.mkdir(fastq_dir)
-    os.mkdir(count_dir)
-    os.mkdir(meta_dir)
-
+    # Try to create a project folder
+    try:
+        os.mkdir(projects_dir)
+    except OSError as exception:
+        raise
+    else:
+        os.mkdir(fastq_dir)
+        os.mkdir(count_dir)
+        os.mkdir(meta_dir)
 
 
 def edit_template(args, template=None):
