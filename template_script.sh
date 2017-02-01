@@ -61,8 +61,8 @@ fi
 
 # -- Run CellRanger mkfastq --
 
-# Create a dir to place the mkfastq command's output. Then move there.
-mkdir "fastqs" && cd $_
+# Move to the 'fastqs' dir to run cellranger mkfastq, so its output goes there.
+cd 'fastqs'
 
 # TODO: Get the number of iterations to calculate the localcores/localmem based on the choosen plan
 # Run CellRanger mkfastq (separatelly for every lane)
@@ -79,8 +79,8 @@ wait
 
 # -- Run CellRanger count --
 
-# Go back. Create a dir to place the count command's output. Then move there.
-cd .. && mkdir "counts" && cd $_
+# Move to the 'counts' dir to run cellranger count, so its output goes there.
+cd '../counts'
 
 # TODO: Get the number of iterations to calculate the localcores/localmem based on the choosen plan
 # Run CellRanger count (separatelly for every sample)
