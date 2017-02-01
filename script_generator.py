@@ -133,7 +133,7 @@ def arg_input():
 
     group_vars.add_argument('-r', '--ref', default='mm',
                         choices=['mm', 'hg'], dest='reference_genome',
-                        help='Choose an organism for the reference genome')
+                        help='Choose a reference genome [mouse, human]')
 
     group_vars.add_argument('-P', '--project-name', required=True, metavar='',
                         dest='project_name',

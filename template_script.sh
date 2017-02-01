@@ -36,8 +36,8 @@ HISEQ_PATH=""
 # Get the hiseq directory name (without the path)
 hiseq_dir=$(basename $HISEQ_PATH)
 
-# Extract the mkfastq output directory from the hiseq dir name
-mkfastq_dir=$(awk -F"_" '{print substr($NF, 2);}' <<< $hiseq_dir)
+# Extract the project's name from the hiseq dir name
+proj_name=$(awk -F"_" '{print substr($NF, 2);}' <<< $hiseq_dir)
 
 # Get the second column (Sample) of the samplesheet, as an array
 sample_array=$(awk -F, 'NR>=2 {print $2}' "metadata/$SAMPLESHEET")
@@ -47,10 +47,10 @@ minLane=($(awk -F, 'BEGIN{a=1000}{if ($1<0+a) a=$1} END{print a}' "metadata/$SAM
 maxLane=($(awk -F, 'BEGIN{a=   0}{if ($1>0+a) a=$1} END{print a}' "metadata/$SAMPLESHEET"))
 
 # Assign the reference genome path according to the given organism
-if [[ $REF_ORGANSM == "mm10" ]]; then
+if [[ $REF_ORGANSM == "mm" ]]; then
   REF_GENOME="refdata-cellranger-mm10-1.2.0"
 
-elif [[ $REF_ORGANSM == "hg19" ]]; then
+elif [[ $REF_ORGANSM == "hg" ]]; then
   REF_GENOME="refdata-cellranger-hg19-1.2.0"
 
 else
@@ -59,10 +59,13 @@ else
 fi
 
 
-# Create a dir to place the mkfastq command's output. Then move there.
-mkdir $mkfastq_dir && cd $_
+# -- Run CellRanger mkfastq --
 
-# -- Run CellRanger mkfastq (separatelly for every lane) --
+# Create a dir to place the mkfastq command's output. Then move there.
+mkdir "fastqs" && cd $_
+
+# TODO: Get the number of iterations to calculate the localcores/localmem based on the choosen plan
+# Run CellRanger mkfastq (separatelly for every lane)
 for $(seq $minLane $maxLane)
 do
   # Run CellRanger mkfastq command
@@ -72,3 +75,23 @@ done
 
 echo "Waiting CellRanger mkfastq to finish for Lanes: $minLane to $maxLane ..."
 wait
+
+
+# -- Run CellRanger count --
+
+# Go back. Create a dir to place the count command's output. Then move there.
+cd .. && mkdir "counts" && cd $_
+
+# TODO: Get the number of iterations to calculate the localcores/localmem based on the choosen plan
+# Run CellRanger count (separatelly for every sample)
+for sample in $sample_array
+do
+  echo $sample
+  # Extract the sample's lane and form the folder's name
+  extr_lane=($(awk -F, -v sample=$sample '$2 == sample {print $1}' "../metadata/$SAMPLESHEET"))
+
+  fastq_dir=$proj_name"_"$extr_lane
+
+  # TODO: Check 'localcores' and 'localmem'. Do some automation
+  ../../../cellranger-1.2.0/cellranger count --id=$sample --transcriptome="../../../references/$REF_GENOME" --fastqs="../fastqs/$fastq_dir/outs/fastq_path/" --sample=$sample --localcores=4 --localmem=115 &
+done
