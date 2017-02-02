@@ -252,8 +252,6 @@ def build_project_structure(project_name=None, args=None):
     # Copy the samplesheet in the metadata folder
     # (it doesn't matter if the path is absolute or relative; this
     # will work since it passed the initial argument existing check)
-    print(args.samplesheet_loc)
-    print(meta_dir)
     shutil.copy(args.samplesheet_loc, meta_dir)
 
 
@@ -345,7 +343,17 @@ def edit_template(args, template=None):
 
 
 def fix_path(path, target='scripts'):
-    path = '/'.join([target, path])
+    """
+    This function takes a path and a target (folder name) and
+    joins them. The idea is to provide some flexibility for the
+    users that use relative paths instead of absolute ones.
+
+    Of course many things can go wrong (e.g. the folder the user
+    calls the generator script from), so it's recommended to
+    always make use of absolute data paths.
+    """
+    
+    path = os.path.join(target, path)
 
     if os.path.exists(path):
         return path
