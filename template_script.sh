@@ -26,7 +26,7 @@ cd "$(dirname "$0")"
 # Define the project variables given as arguments
 ?reference_genome
 REF_ORGANISM=""
-?samplesheet_name
+?samplesheet_loc
 SAMPLESHEET=""
 ?hiseq_datapath
 HISEQ_PATH=""
