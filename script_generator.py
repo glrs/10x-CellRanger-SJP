@@ -66,31 +66,35 @@ class CustomFormatter(argparse.RawDescriptionHelpFormatter, CustomHelpFormatter)
     pass
 
 def arg_input():
+    # Create a text wrapper for the help output text
     w = textwrap.TextWrapper(width=90,
                             break_long_words=False,
                             replace_whitespace=False)
 
+    # Form the usage note text
     usage_note = ["%(prog)s [-h] [-o <Output_Name>] -A <Uppmax_Project>\n",
                     "\t-J <Jobname> [-p {core,node}] [-n int] [-N int]",
                     "[-t {d-hh:mm:ss}]\n\t[--qos] -d <Data_Path> [-r {mm,hg}]",
                     "-P <Project_Name> -s <Samplesheet>"]
 
+    # Form the epiloge text
     epilog_note = ["NOTE: If you call the script without arguments it will\n",
                     "     enter the adaptive mode, where you will be asked\n",
                     "     specifically to add each of the necessary inputs.\n"]
 
-    # formatter_class=argparse.RawDescriptionHelpFormatter
+    # Initialize a parser using the CustomFormatter class
     parser = argparse.ArgumentParser(
                 description='Adapt the 10xGenomics Pipeline to your new Project.',
                 formatter_class=CustomFormatter,
                 epilog=" ".join(epilog_note),
                 usage=" ".join(usage_note))
 
-    # An argument group for #SBATCH
+    # Create an argument group for #SBATCH
     group_sbatch = parser.add_argument_group('#SBATCH', textwrap.dedent('''
-                    #SBATCH arguments are used for specifying your
-                    preferences for the UPPMAX job you plan to submit.'''))
+                        #SBATCH arguments are used for specifying your
+                        preferences for the UPPMAX job you plan to submit.'''))
 
+    # -- Add the arguments for the #SBATCH group --
     group_sbatch.add_argument('-A', required=True, metavar='',
                         dest='uppmax_project_name',
                         help='UPPMAX Project name.')
@@ -124,11 +128,12 @@ def arg_input():
                         Very high priority.')
 
 
-    # An argument group for the Script's variables of a project
+    # Create an argument group for variables related to a project
     group_vars = parser.add_argument_group('Script Variables',
                         " ".join(["Variables you need to specify",
                                 "about your project (e.g. file paths)"]))
 
+    # -- Add the arguments for the project variables group --
     group_vars.add_argument('-d', '--hiseq-datapath', required=True, metavar='',
                         dest='hiseq_datapath',
                         help='Absolute path of the raw hiseq data to be analysed.')
@@ -141,14 +146,14 @@ def arg_input():
                         dest='samplesheet_name',
                         help='Provide the path of the metadata samplesheet.')
 
-    # parser.add_argument('-i', '--input', help='Choose the input script')
-    parser.add_argument('-o', '--output', dest='output',
+    parser.add_argument('-o', '--output', dest='output', metavar='',
                         help='Give a name to the output script.')
 
     parser.add_argument('--version',
                         action='version',
                         version='%(prog)s 1.0')
 
+    # Parse the given arguments
     args = parser.parse_args()
 
 
@@ -189,7 +194,6 @@ def arg_input():
     edit_template(args)
 
 
-
 def build_project_structure(project_name=None, args=None):
     """
     This function creates the folder structure to support a new project.
@@ -203,12 +207,13 @@ def build_project_structure(project_name=None, args=None):
     # Move the working directory to the local root folder
     os.chdir(os.path.dirname(sys.path[0]))
 
+    # Check whether the 'Projects' folder exists
     if not os.path.exists(os.getcwd() + "/Projects"):
         print("Directory 'Projects' could not be find in the current directory.")
         print("Make sure the script is located in the 'scripts' folder.")
         exit(3)
 
-    # Form the name of the project folder to be created
+    # Form the name of the project folder to be created inside 'Projects'
     projects_dir = "Projects/" + "project_" + project_name
 
     # Check if a folder with the given name already exists
@@ -224,12 +229,13 @@ def build_project_structure(project_name=None, args=None):
     count_dir = projects_dir + "/counts"
     meta_dir  = projects_dir + "/metadata"
 
-    # Try to create a project folder
+    # Try to create the project folder
     try:
         os.mkdir(projects_dir)
     except OSError as exception:
         raise
     else:
+        # If successful create the extra directories inside it
         os.mkdir(fastq_dir)
         os.mkdir(count_dir)
         os.mkdir(meta_dir)
@@ -247,46 +253,76 @@ def edit_template(args, template=None):
     """
     This function creates a new file based on a (given) template,
     placing the appropriate given arguments in the right place.
+
+    Areas that need to be edited on the template script should
+    contain a '?' at the beginning of the line, followed by a
+    string that matches the given argument keys.
+
+    This function will delete this line, after either appending
+    the next line with the right value (if the value was given),
+    or deleting the next line too (if no value was given or if
+    no such a key was found).
     """
 
+    # Get the arguments as a dictionary and get a set of the given keys
     args_dict = vars(args)
     args_keys = set(args_dict.keys())
 
+    # If no template name was given, use the default template.
     if template is None:
         template = "template_script.sh"
 
+    # Avoid replacing/losing the template file...
     if args.output == template or args.output == "template_script.sh":
         print("The output name should NOT be the same as the template script.")
         exit(5)
 
+    # Open the template script in read mode
     with open(template, 'r') as template:
         template_buf = iter(template.readlines())
 
+    # Open/Create the output file in write mode.
+    #
     with open(args.output, 'w') as output:
         for line in template_buf:
+            # Lines starting with '?' in the template, indicate
+            # positions where the argument keys can be found
             if line.startswith('?'):
-                # Is there something smart to do the replacement at once???
-                lineplit = line[1:].split()
+                # Gets the string after '?'
+                linesplit = line[1:]
 
-                arg_match = args_keys.intersection(lineplit)
+                # Get the matches of the key set and the linesplit as list
+                arg_match = list(args_keys.intersection(linesplit))
 
+                # Check whether only one match found
                 if arg_match and len(arg_match) == 1:
-                    arg_val = args_dict[list(arg_match)[0]]
+                    # Get the value of the matched key
+                    arg_val = args_dict[arg_match[0]]
+
+                    # If the value is None, line should be omitted
                     if arg_val is None:
                         line = ''
                         next(template_buf, None)
+
                     else:
+                        # Get the next line and strip any extra whitespace
                         next_line = next(template_buf).strip()
-                        if next_line[-1:] != '"':
-                            line = next_line + ' ' + str(arg_val) + '\n'
-                        else:
+
+                        # Is the last char of the line a quotation mark?
+                        if next_line[-1:] in ('"', "'"):
+                            # Place the argument value between quotation marks
                             line = next_line[:-1] + str(arg_val) + next_line[-1:] + '\n'
+                        else:
+                            # Place the argument value at the end of the line
+                            line = next_line + ' ' + str(arg_val) + '\n'
+
                 else:
+                    # If more or None matches found line should be omitted
                     line = ''
                     next(template_buf, None)
 
+            # Write the edited template file into the final script file
             output.write(line)
-
 
 
 if __name__ == "__main__":
