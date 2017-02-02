@@ -136,15 +136,15 @@ def arg_input():
     # -- Add the arguments for the project variables group --
     group_vars.add_argument('-d', '--hiseq-datapath', required=True, metavar='',
                         dest='hiseq_datapath',
-                        help='Absolute path of the raw hiseq data to be analysed.')
+                        help='Path of the raw hiseq data (pref. absolute).')
 
     group_vars.add_argument('-r', '--ref', default='mm',
                         choices=['mm', 'hg'], dest='reference_genome',
                         help='Choose a reference genome [mouse, human]')
 
     group_vars.add_argument('-s', '--samplesheet', required=True, metavar='',
-                        dest='samplesheet_name',
-                        help='Provide the path of the metadata samplesheet.')
+                        dest='samplesheet_loc',
+                        help='Path of the metadata samplesheet (pref. absolute).')
 
     parser.add_argument('-o', '--output', dest='output', metavar='',
                         help='Give a name to the output script.')
@@ -162,15 +162,30 @@ def arg_input():
     # Format Job description string properly
     args.job_description = args.job_description.replace(' ', '_')
 
-    # Check if the given samplesheet path is valid.
-    if not os.path.exists(args.samplesheet_name):
+    # Check whether the given samplesheet path is valid or not.
+    if os.path.exists(args.samplesheet_loc):
+        pass
+    elif os.path.exists('scripts/' + args.samplesheet_loc):
+        try:
+            args.samplesheet_loc = fix_path(args.samplesheet_loc)
+        except:
+            raise
+    else:
         print("The samplesheet path you provided is not valid. Exiting...")
         exit(1)
 
-    # Check if the given hiseq data path is valid.
-    if not os.path.exists(args.hiseq_datapath):
+    # Check whether the given hiseq data path is valid or not.
+    if os.path.exists(args.hiseq_datapath):
+        pass
+    elif os.path.exists('scripts/' + args.hiseq_datapath):
+        try:
+            args.hiseq_datapath = fix_path(args.hiseq_datapath)
+        except:
+            raise
+    else:
         print("The hiseq data-path you provided is not valid. Exiting...")
         exit(1)
+
 
     # Take the hiseq project name from the given hiseq path
     hiseq_project = os.path.basename(args.hiseq_datapath)
@@ -186,9 +201,9 @@ def arg_input():
     # Generate the project folder and its subfolders.
     build_project_structure(project_name, args)
 
-    # After creating the folder structure of the project
-    # keep only the name of the samplesheet, instead of the full path.
-    args.samplesheet_name = os.path.basename(args.samplesheet_name)
+    # After creating the folder structure of the project keep
+    # only the NAME of the samplesheet, instead of the full path.
+    args.samplesheet_loc = os.path.basename(args.samplesheet_loc)
 
     # Edit the template file to generate the desired script
     edit_template(args)
@@ -204,17 +219,8 @@ def build_project_structure(project_name=None, args=None):
         print("No project name given.")
         exit(2)
 
-    # Move the working directory to the local root folder
-    os.chdir(os.path.dirname(sys.path[0]))
-
-    # Check whether the 'Projects' folder exists
-    if not os.path.exists(os.getcwd() + "/Projects"):
-        print("Directory 'Projects' could not be find in the current directory.")
-        print("Make sure the script is located in the 'scripts' folder.")
-        exit(3)
-
     # Form the name of the project folder to be created inside 'Projects'
-    projects_dir = "Projects/" + "project_" + project_name
+    projects_dir = 'Projects/' + 'project_' + project_name
 
     # Check if a folder with the given name already exists
     # If exists, try suffixing with an ascending number
@@ -225,9 +231,9 @@ def build_project_structure(project_name=None, args=None):
         print("Trying: " + projects_dir)
 
     # Form the name of the necessary folders in the project dir
-    fastq_dir = projects_dir + "/fastqs"
-    count_dir = projects_dir + "/counts"
-    meta_dir  = projects_dir + "/metadata"
+    fastq_dir = projects_dir + '/fastqs'
+    count_dir = projects_dir + '/counts'
+    meta_dir  = projects_dir + '/metadata'
 
     # Try to create the project folder
     try:
@@ -241,12 +247,14 @@ def build_project_structure(project_name=None, args=None):
         os.mkdir(meta_dir)
 
     # Change directory back to the script's original dir
-    os.chdir(sys.path[0])
+    # os.chdir(sys.path[0])
 
     # Copy the samplesheet in the metadata folder
     # (it doesn't matter if the path is absolute or relative; this
     # will work since it passed the initial argument existing check)
-    shutil.copy(args.samplesheet_name, "../" + meta_dir)
+    print(args.samplesheet_loc)
+    print(meta_dir)
+    shutil.copy(args.samplesheet_loc, meta_dir)
 
 
 def edit_template(args, template=None):
@@ -270,12 +278,23 @@ def edit_template(args, template=None):
 
     # If no template name was given, use the default template.
     if template is None:
-        template = "template_script.sh"
+        template = 'template_script.sh'
+
+    # Form the path that the template is expected to be.
+    try:
+        template = fix_path(template)
+    except:
+        raise
+
+    if not os.path.exists(template):
+        print("Could not find the template file '{}' in the scripts folder.\
+                Exiting...".format(template))
+        exit(1)
 
     # Avoid replacing/losing the template file...
     if args.output == template or args.output == "template_script.sh":
         print("The output name should NOT be the same as the template script.")
-        exit(5)
+        exit(3)
 
     # Open the template script in read mode
     with open(template, 'r') as template:
@@ -325,7 +344,24 @@ def edit_template(args, template=None):
             output.write(line)
 
 
+def fix_path(path, target='scripts'):
+    path = '/'.join([target, path])
+
+    if os.path.exists(path):
+        return path
+    else:
+        return False
+
 if __name__ == "__main__":
+    # Move the working directory to the local root folder
+    os.chdir(os.path.dirname(sys.path[0]))
+
+    # Check whether the 'Projects' folder exists for localization
+    if not os.path.exists(os.getcwd() + '/Projects'):
+        print("Directory 'Projects' could not be find in the current directory.")
+        print("Make sure the script is located in the 'scripts' folder.")
+        exit(1)
+
     # print(len(sys.argv))
     if len(sys.argv) <= 1:
         interactive_input()
