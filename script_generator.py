@@ -2,6 +2,7 @@
 
 import os
 import sys
+import shutil
 import argparse
 import textwrap
 import itertools
@@ -138,7 +139,7 @@ def arg_input():
 
     group_vars.add_argument('-s', '--samplesheet', required=True, metavar='',
                         dest='samplesheet_name',
-                        help='Provide the name of the metadata samplesheet.')
+                        help='Provide the path of the metadata samplesheet.')
 
     # parser.add_argument('-i', '--input', help='Choose the input script')
     parser.add_argument('-o', '--output', dest='output',
@@ -156,6 +157,11 @@ def arg_input():
     # Format Job description string properly
     args.job_description = args.job_description.replace(' ', '_')
 
+    # Check if the given samplesheet path is valid.
+    if not os.path.exists(args.samplesheet_name):
+        print("The samplesheet path you provided is not valid. Exiting...")
+        exit(1)
+
     # Check if the given hiseq data path is valid.
     if not os.path.exists(args.hiseq_datapath):
         print("The hiseq data-path you provided is not valid. Exiting...")
@@ -172,14 +178,19 @@ def arg_input():
         args.output = project_name + '_script.sh'
 
 
-    # TODO: Add a function that generates the project folder. Maybe it's subfolders too.
-    build_project_structure(project_name)
+    # Generate the project folder and its subfolders.
+    build_project_structure(project_name, args)
+
+    # After creating the folder structure of the project
+    # keep only the name of the samplesheet, instead of the full path.
+    args.samplesheet_name = os.path.basename(args.samplesheet_name)
 
     # Edit the template file to generate the desired script
     edit_template(args)
 
 
-def build_project_structure(project_name=None):
+
+def build_project_structure(project_name=None, args=None):
     """
     This function creates the folder structure to support a new project.
     """
@@ -226,6 +237,11 @@ def build_project_structure(project_name=None):
     # Change directory back to the script's original dir
     os.chdir(sys.path[0])
 
+    # Copy the samplesheet in the metadata folder
+    # (it doesn't matter if the path is absolute or relative; this
+    # will work since it passed the initial argument existing check)
+    shutil.copy(args.samplesheet_name, "../" + meta_dir)
+
 
 def edit_template(args, template=None):
     """
@@ -234,10 +250,7 @@ def edit_template(args, template=None):
     """
 
     args_dict = vars(args)
-    #args_keys = set(["?" + str for str in args_dict.keys()])
     args_keys = set(args_dict.keys())
-
-    #print(args_keys)
 
     if template is None:
         template = "template_script.sh"
@@ -256,7 +269,7 @@ def edit_template(args, template=None):
                 lineplit = line[1:].split()
 
                 arg_match = args_keys.intersection(lineplit)
-                # print(arg_match)
+
                 if arg_match and len(arg_match) == 1:
                     arg_val = args_dict[list(arg_match)[0]]
                     if arg_val is None:
