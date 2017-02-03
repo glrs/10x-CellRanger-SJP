@@ -1,5 +1,6 @@
 #!/usr/bin/python
 
+from __future__ import print_function
 import os
 import sys
 import shutil
@@ -219,8 +220,8 @@ def build_project_structure(project_name=None, args=None):
         print("No project name given.")
         exit(2)
 
-    # Form the name of the project folder to be created inside 'Projects'
-    projects_dir = 'Projects/' + 'project_' + project_name
+    # Form the name of the project folder to be created inside 'projects'
+    projects_dir = 'projects/' + 'project_' + project_name
 
     # Check if a folder with the given name already exists
     # If exists, try suffixing with an ascending number
@@ -276,18 +277,16 @@ def edit_template(args, template=None):
 
     # If no template name was given, use the default template.
     if template is None:
-        template = 'template_script.sh'
-
-    # Form the path that the template is expected to be.
-    try:
-        template = fix_path(template)
-    except:
-        raise
+        template = 'scripts/template_script.sh'
 
     if not os.path.exists(template):
-        print("Could not find the template file '{}' in the scripts folder.\
-                Exiting...".format(template))
-        exit(1)
+        # Form the path that the template is expected to be.
+        template = fix_path(template)
+
+        if not template:
+            print("Could not find the template file '{}' ".format(template), end='')
+            print("in the scripts folder. Exiting...")
+            exit(1)
 
     # Avoid replacing/losing the template file...
     if args.output == template or args.output == "template_script.sh":
@@ -299,14 +298,13 @@ def edit_template(args, template=None):
         template_buf = iter(template.readlines())
 
     # Open/Create the output file in write mode.
-    #
     with open(args.output, 'w') as output:
         for line in template_buf:
             # Lines starting with '?' in the template, indicate
             # positions where the argument keys can be found
             if line.startswith('?'):
-                # Gets the string after '?'
-                linesplit = line[1:]
+                # Gets the string after '?' in a list
+                linesplit = line[1:].split()
 
                 # Get the matches of the key set and the linesplit as list
                 arg_match = list(args_keys.intersection(linesplit))
@@ -352,7 +350,7 @@ def fix_path(path, target='scripts'):
     calls the generator script from), so it's recommended to
     always make use of absolute data paths.
     """
-    
+
     path = os.path.join(target, path)
 
     if os.path.exists(path):
@@ -364,9 +362,9 @@ if __name__ == "__main__":
     # Move the working directory to the local root folder
     os.chdir(os.path.dirname(sys.path[0]))
 
-    # Check whether the 'Projects' folder exists for localization
-    if not os.path.exists(os.getcwd() + '/Projects'):
-        print("Directory 'Projects' could not be find in the current directory.")
+    # Check whether the 'projects' folder exists for localization
+    if not os.path.exists(os.getcwd() + '/projects'):
+        print("Directory 'projects' could not be find in the current directory.")
         print("Make sure the script is located in the 'scripts' folder.")
         exit(1)
 

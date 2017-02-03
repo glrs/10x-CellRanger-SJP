@@ -18,12 +18,12 @@
 ?job_description
 #SBATCH -J
 
-#  -- Always change directory to the project's --
-# root dir where the script is located. This helps the
-# orientation of the script relative to the project.
+#  -- Always change directory to the project's root dir
+# where the script is located. This helps the orientation
+# of the script relative to the project.
 
 # Get which file was called on the bash command
-#    symlink --or-- original
+# e.g.   symlink --or-- original
 SOURCE="${BASH_SOURCE[0]}"
 
 # resolve $SOURCE until the file is no longer a symlink
