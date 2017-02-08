@@ -66,10 +66,10 @@ minLane=($(awk -F, 'BEGIN{a=1000}{if ($1<0+a) a=$1} END{print a}' "metadata/$SAM
 maxLane=($(awk -F, 'BEGIN{a=   0}{if ($1>0+a) a=$1} END{print a}' "metadata/$SAMPLESHEET"))
 
 # Assign the reference genome path according to the given organism
-if [[ $REF_ORGANSM == "mm" ]]; then
+if [[ $REF_ORGANISM == "mm" ]]; then
   REF_GENOME="refdata-cellranger-mm10-1.2.0"
 
-elif [[ $REF_ORGANSM == "hg" ]]; then
+elif [[ $REF_ORGANISM == "hg" ]]; then
   REF_GENOME="refdata-cellranger-hg19-1.2.0"
 
 else
