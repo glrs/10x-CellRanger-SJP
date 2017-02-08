@@ -1,6 +1,7 @@
 #!/usr/bin/python
 
 from __future__ import print_function
+from collections import namedtuple
 import os
 import sys
 import shutil
@@ -8,6 +9,7 @@ import argparse
 import textwrap
 import itertools
 
+proj_struct = namedtuple('project', ['root', 'fastqs', 'counts', 'meta'])
 
 def interactive_input():
     #dirlist = os.listdir('.')
@@ -200,7 +202,7 @@ def arg_input():
 
 
     # Generate the project folder and its subfolders.
-    build_project_structure(project_name, args)
+    project = build_project_structure(project_name, args)
 
     # After creating the folder structure of the project keep
     # only the NAME of the samplesheet, instead of the full path.
@@ -209,6 +211,8 @@ def arg_input():
     # Edit the template file to generate the desired script
     edit_template(args)
 
+    move_files(args.output, project.root, copy=True)
+    move_files(args.samplesheet_loc, project.meta, copy=True)
 
 def build_project_structure(project_name=None, args=None):
     """
@@ -221,24 +225,24 @@ def build_project_structure(project_name=None, args=None):
         exit(2)
 
     # Form the name of the project folder to be created inside 'projects'
-    projects_dir = 'projects/' + 'project_' + project_name
+    project_dir = 'projects/' + 'project_' + project_name
 
     # Check if a folder with the given name already exists
     # If exists, try suffixing with an ascending number
     count = itertools.count(1)
-    while os.path.exists(projects_dir):
+    while os.path.exists(project_dir):
         print("A folder with the given project name, already exists.")
-        projects_dir = '_'.join(projects_dir.split('_')[:2]) + '_' + str(count.next())
-        print("Trying: " + projects_dir)
+        project_dir = '_'.join(project_dir.split('_')[:2]) + '_' + str(count.next())
+        print("Trying: " + project_dir)
 
     # Form the name of the necessary folders in the project dir
-    fastq_dir = projects_dir + '/fastqs'
-    count_dir = projects_dir + '/counts'
-    meta_dir  = projects_dir + '/metadata'
+    fastq_dir = project_dir + '/fastqs'
+    count_dir = project_dir + '/counts'
+    meta_dir  = project_dir + '/metadata'
 
     # Try to create the project folder
     try:
-        os.mkdir(projects_dir)
+        os.mkdir(project_dir)
     except OSError as exception:
         raise
     else:
@@ -247,13 +251,18 @@ def build_project_structure(project_name=None, args=None):
         os.mkdir(count_dir)
         os.mkdir(meta_dir)
 
+    # Instantiate the 'proj_struct' namedtuple for the project structure
+    project = proj_struct(project_dir, fastq_dir, count_dir, meta_dir)
+
     # Change directory back to the script's original dir
     # os.chdir(sys.path[0])
 
     # Copy the samplesheet in the metadata folder
     # (it doesn't matter if the path is absolute or relative; this
     # will work since it passed the initial argument existing check)
-    shutil.copy(args.samplesheet_loc, meta_dir)
+    # shutil.copy(args.samplesheet_loc, meta_dir)
+
+    return project
 
 
 def edit_template(args, template=None):
@@ -277,16 +286,18 @@ def edit_template(args, template=None):
 
     # If no template name was given, use the default template.
     if template is None:
-        template = 'scripts/template_script.sh'
+        template = 'scripts/template_script.bash'
 
     if not os.path.exists(template):
         # Form the path that the template is expected to be.
-        template = fix_path(template)
+        temp = fix_path(template)
 
-        if not template:
+        if not temp:
             print("Could not find the template file '{}' ".format(template), end='')
             print("in the scripts folder. Exiting...")
             exit(1)
+        else:
+            template = temp
 
     # Avoid replacing/losing the template file...
     if args.output == template or args.output == "template_script.sh":
@@ -338,6 +349,24 @@ def edit_template(args, template=None):
 
             # Write the edited template file into the final script file
             output.write(line)
+
+
+def move_files(src, dest, copy=False):
+    """
+    Moves (or Copies) the given file to the given location.
+
+    If you want to copy the files instead of moving them, set
+    the 'copy' argument True.
+    """
+    func = shutil.move
+
+    if copy:
+        func = shutil.copy
+
+    try:
+        func(src, dest)
+    except:
+        raise
 
 
 def fix_path(path, target='scripts'):
