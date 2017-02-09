@@ -1,15 +1,20 @@
 #!/usr/bin/python
 
 from __future__ import print_function
+from collections import defaultdict
 from collections import namedtuple
+
 import os
 import sys
+import csv
 import shutil
 import argparse
 import textwrap
 import itertools
 
+
 proj_struct = namedtuple('project', ['root', 'fastqs', 'counts', 'meta'])
+parallel_struct = namedtuple('parallel', ['scripts_to_gen', ])
 
 def interactive_input():
     #dirlist = os.listdir('.')
@@ -208,11 +213,129 @@ def arg_input():
     # only the NAME of the samplesheet, instead of the full path.
     args.samplesheet_loc = os.path.basename(args.samplesheet_loc)
 
+    # Get the samplesheet data in a dictionary
+    samplesheet_dict = csv_to_dict(args.samplesheet_loc)
+
+    args_dict = vars(args)
+
+    # Add an argument for the list of lanes, in BASH style (i.e. "1 2 4 7 ...")
+    args_dict['list_of_lanes'] = " ".join(map(str, samplesheet_dict['Lane']))
+
+    generate_script(args_dict, template='mkfastq_template.bash')
+
     # Edit the template file to generate the desired script
-    edit_template(args)
+    #edit_template(args)
 
     move_files(args.output, project.root, copy=True)
     move_files(args.samplesheet_loc, project.meta, copy=True)
+
+
+def generate_script(args_dict, template):
+    """
+    This function creates a new file based on a (given) template,
+    placing the appropriate given arguments in the right place.
+
+    Areas that need to be edited on the template script should
+    contain a '?' at the beginning of the line, followed by a
+    string that matches the given argument keys.
+
+    This function will delete this line, after either appending
+    the next line with the right value (if the value was given),
+    or deleting the next line too (if no value was given or if
+    no such a key was found).
+
+    template: { 'mkfastq', 'count'}
+    """
+
+    # Get a set of the given keys
+    args_keys = set(args_dict.keys())
+
+    if not os.path.exists(template):
+        # Form the path that the template is expected to be.
+        temp = fix_path(template)
+
+        if not temp:
+            print("Could not find the template file '{}' ".format(template), end='')
+            print("in the scripts folder. Exiting...")
+            exit(1)
+        else:
+            template = temp
+
+    # Avoid replacing/losing the template file...
+    if args_dict['output'] == template \
+        or args_dict['output'] == "mkfastq_template.bash" \
+        or args_dict['output'] == "count_template.bash":
+
+        print("The output name should NOT be the same as the template script.")
+        exit(3)
+
+    # Open the template script in read mode
+    with open(template, 'r') as template:
+        template_buf = iter(template.readlines())
+
+    # Open/Create the output file in write mode.
+    with open(args_dict['output'], 'w') as output:
+        for line in template_buf:
+            # Lines starting with '?' in the template, indicate
+            # positions where the argument keys can be found
+            if line.startswith('?'):
+                # Gets the string after '?' in a list
+                linesplit = line[1:].split()
+
+                # Get the matches of the key set and the linesplit as list
+                arg_match = list(args_keys.intersection(linesplit))
+
+                # Check whether only one match found
+                if arg_match and len(arg_match) == 1:
+                    # Get the value of the matched key
+                    arg_val = args_dict[arg_match[0]]
+
+                    # If the value is None, line should be omitted
+                    if arg_val is None:
+                        line = ''
+                        next(template_buf, None)
+
+                    else:
+                        # Get the next line and strip any extra whitespace
+                        next_line = next(template_buf).strip()
+
+                        # Is the last char of the line a quotation mark?
+                        if next_line[-1:] in ('"', "'"):
+                            # Place the argument value between quotation marks
+                            line = next_line[:-1] + str(arg_val) + next_line[-1:] + '\n'
+                        else:
+                            # Place the argument value at the end of the line
+                            line = next_line + ' ' + str(arg_val) + '\n'
+
+                else:
+                    # If more or None matches found line should be omitted
+                    line = ''
+                    next(template_buf, None)
+
+            # Write the edited template file into the final script file
+            output.write(line)
+
+
+def csv_to_dict(csv_file):
+    """
+    Get the content of a csv file as a list dictionary.
+
+    i.e.
+        print(dict['column1'])
+        >>> ['Bob', 'Rob', 'John']
+    """
+
+    file_columns = defaultdict(list)
+
+    with open(csv_file, 'r') as f:
+        sheet = csv.DictReader(f)
+
+        for row in sheet:
+            for key, val in row.items():
+                file_columns[key].append(val)
+
+    return file_columns
+
 
 def build_project_structure(project_name=None, args=None):
     """
@@ -265,6 +388,7 @@ def build_project_structure(project_name=None, args=None):
     return project
 
 
+# TODO: Get the arguments as dictionary [vars(args)]
 def edit_template(args, template=None):
     """
     This function creates a new file based on a (given) template,
@@ -300,7 +424,7 @@ def edit_template(args, template=None):
             template = temp
 
     # Avoid replacing/losing the template file...
-    if args.output == template or args.output == "template_script.sh":
+    if args.output == template or args.output == "template_script.bash":
         print("The output name should NOT be the same as the template script.")
         exit(3)
 
