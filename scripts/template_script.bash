@@ -17,6 +17,8 @@
 #SBATCH -t
 ?job_description
 #SBATCH -J
+?sbatch_output
+#SBATCH --output=
 
 #  -- Always change directory to the project's root dir
 # where the script is located. This helps the orientation
@@ -58,10 +60,8 @@ hiseq_dir=$(basename $HISEQ_PATH)
 # Extract the project's name from the hiseq dir name
 proj_name=$(awk -F"_" '{print substr($NF, 2);}' <<< $hiseq_dir)
 
-# Get the second column (Sample) of the samplesheet, as an array
-sample_array=$(awk -F, 'NR>=2 {print $2}' "metadata/$SAMPLESHEET")
-
 # Find the MIN and MAX lane number
+# TODO: What if Lanes are: {1, 3, 5, 8}? Use unique list instead
 minLane=($(awk -F, 'BEGIN{a=1000}{if ($1<0+a) a=$1} END{print a}' "metadata/$SAMPLESHEET"))
 maxLane=($(awk -F, 'BEGIN{a=   0}{if ($1>0+a) a=$1} END{print a}' "metadata/$SAMPLESHEET"))
 
@@ -85,7 +85,7 @@ cd 'fastqs'
 
 # TODO: Get the number of iterations to calculate the localcores/localmem based on the choosen plan
 # Run CellRanger mkfastq (separatelly for every lane)
-for $(seq $minLane $maxLane)
+for i in $(seq $minLane $maxLane)
 do
   # Run CellRanger mkfastq command
   # TODO: Add 'localcores' and 'localmem' restrictions.
@@ -101,16 +101,25 @@ wait
 # Move to the 'counts' dir to run cellranger count, so its output goes there.
 cd '../counts'
 
+# Get the second column (Sample) of the samplesheet, as an array
+sample_array=$(awk -F, 'NR>=2 {print $2}' "../metadata/$SAMPLESHEET")
+NotDone=true
+
+
 # TODO: Get the number of iterations to calculate the localcores/localmem based on the choosen plan
 # Run CellRanger count (separatelly for every sample)
-for sample in $sample_array
+while $NotDone;
 do
-  echo $sample
-  # Extract the sample's lane and form the folder's name
-  extr_lane=($(awk -F, -v sample=$sample '$2 == sample {print $1}' "../metadata/$SAMPLESHEET"))
+  for sample in $sample_array
+  do
+    echo $sample
+    # Extract the sample's lane and form the folder's name
+    extr_lane=($(awk -F, -v sample=$sample '$2 == sample {print $1}' "../metadata/$SAMPLESHEET"))
 
-  fastq_dir=$proj_name"_"$extr_lane
+    fastq_dir=$proj_name"_"$extr_lane
 
-  # TODO: Check 'localcores' and 'localmem'. Do some automation
-  ../../../cellranger-1.2.0/cellranger count --id=$sample --transcriptome="../../../references/$REF_GENOME" --fastqs="../fastqs/$fastq_dir/outs/fastq_path/" --sample=$sample --localcores=4 --localmem=115 &
+    # TODO: Check 'localcores' and 'localmem'. Do some automation
+    ../../../cellranger-1.2.0/cellranger count --id=$sample --transcriptome="../../../references/$REF_GENOME" --fastqs="../fastqs/$fastq_dir/outs/fastq_path/" --sample=$sample --localcores=4 --localmem=115 &
+  done
+
 done
