@@ -43,7 +43,6 @@ done                                                            #
 # Form the directory and move there                             #
 DIR="$( cd -P "$( dirname "$SOURCE" )" && pwd )"                #
 cd $DIR                                                         #
-                                                                #
 # ============================================================= #
 
 
@@ -84,7 +83,10 @@ fi
 cd '../counts'
 
 # Get the second column (Sample) of the samplesheet, as an array
-sample_array=$(awk -F, 'NR>=2 {print $2}' "../metadata/$SAMPLESHEET")
+#sample_array=$(awk -F, 'NR>=2 {print $2}' "../metadata/$SAMPLESHEET")
+
+?bash_lane_or_sample_list
+sample_array=""
 
 # TODO: Get the number of iterations to calculate the localcores/localmem based on the choosen plan
 # Run CellRanger count (separatelly for every sample)

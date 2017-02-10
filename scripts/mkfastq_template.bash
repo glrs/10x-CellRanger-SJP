@@ -44,7 +44,6 @@ done                                                            #
 # Form the directory and move there                             #
 DIR="$( cd -P "$( dirname "$SOURCE" )" && pwd )"                #
 cd $DIR                                                         #
-                                                                #
 # ============================================================= #
 
 
@@ -64,7 +63,7 @@ hiseq_dir=$(basename $HISEQ_PATH)
 
 
 # Get the Lanes as a list (space separated string)
-?list_of_lanes
+?bash_lane_or_sample_list
 lanes=""
 
 # -- Run CellRanger mkfastq --
