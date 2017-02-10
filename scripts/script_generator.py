@@ -1,8 +1,10 @@
 #!/usr/bin/python
 
+from __future__ import division
 from __future__ import print_function
 from collections import defaultdict
 from collections import namedtuple
+from math import ceil
 
 import os
 import sys
@@ -13,8 +15,12 @@ import textwrap
 import itertools
 
 
-proj_struct = namedtuple('project', ['root', 'fastqs', 'counts', 'meta'])
-parallel_struct = namedtuple('parallel', ['scripts_to_gen', ])
+proj_struct = namedtuple('project', ['root', 'fastqs', 'counts', 'meta', 'out'])
+node = namedtuple('uppmax_node', ['lanes_per_node', 'samples_per_node'])
+
+uppmax_node = node(4, 4)
+
+scripts_to_gen = namedtuple('scripts_to_gen', ['mkfastq_names', 'count_names'])
 
 def interactive_input():
     #dirlist = os.listdir('.')
@@ -135,7 +141,6 @@ def arg_input():
                         help='Use it for testing. Max 15mins, 4nodes. \
                         Very high priority.')
 
-
     # Create an argument group for variables related to a project
     group_vars = parser.add_argument_group('Script Variables',
                         " ".join(["Variables you need to specify",
@@ -154,15 +159,17 @@ def arg_input():
                         dest='samplesheet_loc',
                         help='Path of the metadata samplesheet (pref. absolute).')
 
-    parser.add_argument('-o', '--output', dest='output', metavar='',
-                        help='Give a name to the output script.')
 
+    # -- The rest, general arguments --
     parser.add_argument('--version',
                         action='version',
                         version='%(prog)s 1.0')
 
     # Parse the given arguments
     args = parser.parse_args()
+
+    # Get a dictionary of args
+    args_dict = vars(args)
 
 
     # -- Argument Checks and Corrections --
@@ -201,33 +208,105 @@ def arg_input():
     # Extract project name by keeping the last part, starting from the 2nd char
     project_name = hiseq_project.split('_')[-1][1:]
 
-    # If no name given for the generated script, use the hiseq project name
-    if args.output is None:
-        args.output = project_name + '_script.sh'
-
-
     # Generate the project folder and its subfolders.
-    project = build_project_structure(project_name, args)
+    project = build_project_structure(project_name)
+    print("The project's folder structure has been created.")
 
-    # After creating the folder structure of the project keep
-    # only the NAME of the samplesheet, instead of the full path.
-    args.samplesheet_loc = os.path.basename(args.samplesheet_loc)
+    # Move/Copy the samplesheet in the correct location
+    move_files(args.samplesheet_loc, project.meta, copy=True)
+    print('The samplesheet has been put in the appropriate location.')
 
     # Get the samplesheet data in a dictionary
     samplesheet_dict = csv_to_dict(args.samplesheet_loc)
 
-    args_dict = vars(args)
+    # Remove duplicated Lanes
+    samplesheet_dict['Lane'] = sorted(list(set(samplesheet_dict['Lane'])))
 
-    # Add an argument for the list of lanes, in BASH style (i.e. "1 2 4 7 ...")
-    args_dict['list_of_lanes'] = " ".join(map(str, samplesheet_dict['Lane']))
+    # Keep only the NAME of the samplesheet, instead of the full path.
+    args.samplesheet_loc = os.path.basename(args.samplesheet_loc)
 
-    generate_script(args_dict, template='mkfastq_template.bash')
+    print('Calculating the plan for this project...')
+    run_plan = calculate_plan(samplesheet_dict)
+
+    # Get the job description in a var to use it as prefix in the for loop
+    job_descr = args.job_description
+
+    print('Creating the appropriate scripts...')
+    # TODO: Create a for loop for all the files that have to be generated.
+    for script_name, bash_list, template in list(itertools.chain(*run_plan)):
+        # Append the SBATCH job description with the script name (no extension)
+        args.job_description = job_descr + '_' + script_name[:-3]
+
+        # Assign the script name to be used
+        args_dict['output'] = script_name
+
+        # Add an argument for the list of lanes or samples
+        args_dict['bash_lane_or_sample_list'] = bash_list
+
+        # Generate the script, given the arguments and the template
+        generate_script(args_dict, template=template)
+
+        # Move the generated script to the appropriate location
+        move_files(script_name, project.root)
+
 
     # Edit the template file to generate the desired script
     #edit_template(args)
 
-    move_files(args.output, project.root, copy=True)
-    move_files(args.samplesheet_loc, project.meta, copy=True)
+    print('Done.')
+
+
+def calculate_plan(samplesheet):
+    """
+    It gets a samplesheet (it should be in the form of a dictionary),
+    and it calculates how many scripts should be generated and some
+    details they should have, based on an earlier initialized global
+    namedtuple variable named 'uppmax_node'.
+
+    It returns a namedtuple with two lists, each contains a number of lists.
+    Each inner list keeps three strings: the output script name, a string
+    with space sep lanes or samples (BASH style list), and the name of the
+    template to be used for the script's construction.
+    """
+
+    lpn = uppmax_node.lanes_per_node
+    spn = uppmax_node.samples_per_node
+
+    # Calculate the number of mkfastq scripts to be generated
+    mkfastq_scripts = len(samplesheet['Lane']) / lpn
+    mkfastq_scripts = int(ceil(mkfastq_scripts))
+
+    # Calculate the number of count scripts to be generated
+    count_scripts = len(samplesheet['Sample']) / spn
+    count_scripts = int(ceil(count_scripts))
+
+    # Initialize the predefind namedtuple with 2 empty lists
+    plan = scripts_to_gen([], [])
+
+    # Generate the names for the mkfastq scripts
+    for i in range(mkfastq_scripts):
+        # Get the lanes corespond to each script (in BASH style string list)
+        lanes = samplesheet['Lane'][i * lpn: (i+1) * lpn]
+        lanes = " ".join(map(str, lanes))
+
+        plan.mkfastq_names.append(['mkfastq_' + str(i+1) + '.sh', lanes,
+                                'mkfastq_template.bash'])
+
+    # Generate the names for the count scripts
+    for i in range(count_scripts):
+        # Get the samples corespond to each script (in BASH style string list)
+        samples = samplesheet['Sample'][i * spn: (i+1) * spn]
+        samples = " ".join(map(str, samples))
+
+        plan.count_names.append(['count_' + str(i+1) + '.sh', samples,
+                                'count_template.bash'])
+
+    return plan
+
+# TODO!!!!!
+# TODO: At the end create a script to collect all the
+# TODO: slurm output files into the slurm_out folder
+# TODO!!!!
 
 
 def generate_script(args_dict, template):
@@ -262,12 +341,12 @@ def generate_script(args_dict, template):
             template = temp
 
     # Avoid replacing/losing the template file...
-    if args_dict['output'] == template \
-        or args_dict['output'] == "mkfastq_template.bash" \
-        or args_dict['output'] == "count_template.bash":
-
-        print("The output name should NOT be the same as the template script.")
-        exit(3)
+    # if args_dict['output'] == template \
+    #     or args_dict['output'] == "mkfastq_template.bash" \
+    #     or args_dict['output'] == "count_template.bash":
+    #
+    #     print("The output name should NOT be the same as the template script.")
+    #     exit(3)
 
     # Open the template script in read mode
     with open(template, 'r') as template:
@@ -337,15 +416,10 @@ def csv_to_dict(csv_file):
     return file_columns
 
 
-def build_project_structure(project_name=None, args=None):
+def build_project_structure(project_name):
     """
     This function creates the folder structure to support a new project.
     """
-
-    # Check if a project name is given
-    if project_name is None:
-        print("No project name given.")
-        exit(2)
 
     # Form the name of the project folder to be created inside 'projects'
     project_dir = 'projects/' + 'project_' + project_name
@@ -362,6 +436,7 @@ def build_project_structure(project_name=None, args=None):
     fastq_dir = project_dir + '/fastqs'
     count_dir = project_dir + '/counts'
     meta_dir  = project_dir + '/metadata'
+    out_dir   = project_dir + '/slurm_out'
 
     # Try to create the project folder
     try:
@@ -373,9 +448,10 @@ def build_project_structure(project_name=None, args=None):
         os.mkdir(fastq_dir)
         os.mkdir(count_dir)
         os.mkdir(meta_dir)
+        os.mkdir(out_dir)
 
     # Instantiate the 'proj_struct' namedtuple for the project structure
-    project = proj_struct(project_dir, fastq_dir, count_dir, meta_dir)
+    project = proj_struct(project_dir, fastq_dir, count_dir, meta_dir, out_dir)
 
     # Change directory back to the script's original dir
     # os.chdir(sys.path[0])
