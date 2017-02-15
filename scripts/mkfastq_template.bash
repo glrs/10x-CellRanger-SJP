@@ -7,8 +7,6 @@
 #SBATCH -p
 ?num_cores
 #SBATCH -n
-?num_nodes
-#SBATCH -N
 ?ram_memory
 #SBATCH -C
 ?use_qos_short
@@ -50,6 +48,15 @@ cd $DIR                                                         #
 # -- Create the necessary variables for the project --
 ?hiseq_datapath
 HISEQ_PATH=""
+?
+LOCALC=
+?
+LOCALM=
+
+# Get the Lanes as a list (space separated string)
+?bash_lane_or_sample_list
+lanes=""
+
 
 # Get the hiseq directory name (without the path)
 hiseq_dir=$(basename $HISEQ_PATH)
@@ -62,10 +69,6 @@ proj_name=$(awk -F"_" '{print substr($NF, 2);}' <<< $hiseq_dir)
 hiseq_dir=$(basename $HISEQ_PATH)
 
 
-# Get the Lanes as a list (space separated string)
-?bash_lane_or_sample_list
-lanes=""
-
 # -- Run CellRanger mkfastq --
 
 # Move to the 'fastqs' dir to run cellranger mkfastq, so its output goes there.
@@ -77,7 +80,7 @@ for lane in $lanes
 do
   # Run CellRanger mkfastq command
   # TODO: Add 'localcores' and 'localmem' restrictions.
-  ../../../cellranger-1.2.0/cellranger mkfastq --run="$HISEQ_PATH" --csv="../metadata/$SAMPLESHEET" --lanes=$lane &
+  ../../../cellranger-1.2.0/cellranger mkfastq --run="$HISEQ_PATH" --csv="../metadata/$SAMPLESHEET" --lanes=$lane --localcores=$LOCALC --localmem=$LOCALM &
 done
 
 echo "Waiting CellRanger mkfastq to finish for Lanes: $lanes."

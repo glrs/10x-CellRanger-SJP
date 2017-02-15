@@ -7,8 +7,6 @@
 #SBATCH -p
 ?num_cores
 #SBATCH -n
-?num_nodes
-#SBATCH -N
 ?ram_memory
 #SBATCH -C
 ?use_qos_short
@@ -54,6 +52,15 @@ REF_ORGANISM=""
 SAMPLESHEET=""
 ?hiseq_datapath
 HISEQ_PATH=""
+?
+LOCALC=
+?
+LOCALM=
+
+
+# Get the samples as a list (space separated string)
+?bash_lane_or_sample_list
+sample_array=""
 
 
 # -- Create the necessary variables for the project --
@@ -82,11 +89,6 @@ fi
 # Move to the 'counts' dir to run cellranger count, so its output goes there.
 cd '../counts'
 
-# Get the second column (Sample) of the samplesheet, as an array
-#sample_array=$(awk -F, 'NR>=2 {print $2}' "../metadata/$SAMPLESHEET")
-
-?bash_lane_or_sample_list
-sample_array=""
 
 # TODO: Get the number of iterations to calculate the localcores/localmem based on the choosen plan
 # Run CellRanger count (separatelly for every sample)
@@ -99,5 +101,5 @@ do
   fastq_dir=$proj_name"_"$extr_lane
 
   # TODO: Check 'localcores' and 'localmem'. Do some automation
-  ../../../cellranger-1.2.0/cellranger count --id=$sample --transcriptome="../../../references/$REF_GENOME" --fastqs="../fastqs/$fastq_dir/outs/fastq_path/" --sample=$sample --localcores=4 --localmem=115 &
+  ../../../cellranger-1.2.0/cellranger count --id=$sample --transcriptome="../../../references/$REF_GENOME" --fastqs="../fastqs/$fastq_dir/outs/fastq_path/" --sample=$sample --localcores=$LOCALC --localmem=$LOCALM &
 done
