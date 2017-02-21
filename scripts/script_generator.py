@@ -15,12 +15,15 @@ import textwrap
 import itertools
 
 
-proj_struct = namedtuple('project', ['root', 'fastqs', 'counts', 'meta', 'out'])
-node = namedtuple('uppmax_node', ['lanes_per_node', 'samples_per_node'])
+proj_struct = namedtuple('project', ['root', 'fastqs', 'counts',
+                                        'aggr', 'meta', 'out'])
+node = namedtuple('uppmax_node', ['partition', 'max_cores',
+                                'mkfq_per_node', 'count_per_node'])
 
-uppmax_node = node(4, 4)
+uppmax_node = node('core', 16, 4, 4)
 
-scripts_to_gen = namedtuple('scripts_to_gen', ['mkfastq_names', 'count_names'])
+scripts_to_gen = namedtuple('scripts_to_gen', ['mkfastq_plan',
+                                'count_plan', 'aggr_plan'])
 
 def interactive_input():
     #dirlist = os.listdir('.')
@@ -47,6 +50,8 @@ def interactive_input():
         modified.write(raw_input('What would you like to add? ') + '\n' + data)
         modified.close()
         original.close()
+
+    return None
 
 
 # Just to make things a bit nicer on the help output
@@ -116,7 +121,7 @@ def arg_input():
     group_sbatch.add_argument('-J', required=True, metavar='',
                         dest='job_description',
                         help='Give a name to this job.')
-
+    '''
     group_sbatch.add_argument('-p', choices=['core', 'node'], default='core',
                         dest='partition',
                         help='Choose partition.')
@@ -135,7 +140,7 @@ def arg_input():
     group_sbatch.add_argument('-t', default='15:00', metavar='{d-hh:mm:ss}',
                         dest='time_request',
                         help='How long to reserve the resources for?')
-
+    '''
     group_sbatch.add_argument('-q', '--qos', action='store_const' ,const='short',
                         dest='use_qos_short',
                         help='Use it for testing. Max 15mins, 4nodes. \
@@ -159,6 +164,10 @@ def arg_input():
                         dest='samplesheet_loc',
                         help='Path of the metadata samplesheet (pref. absolute).')
 
+    group_vars.add_argument('--aggr-norm', choices=['mapped', 'raw', 'None'],
+                        default='mapped', dest='cranger_aggr_norm',
+                        help='Normalization depth across the input libraries.')
+
 
     # -- The rest, general arguments --
     parser.add_argument('--version',
@@ -168,8 +177,16 @@ def arg_input():
     # Parse the given arguments
     args = parser.parse_args()
 
+    return args
+
+
+def run(args):
     # Get a dictionary of args
     args_dict = vars(args)
+
+    # Add the predefind settings for Uppmax
+    args_dict['num_cores'] = uppmax_node.max_cores
+    args_dict['partition'] = uppmax_node.partition
 
 
     # -- Argument Checks and Corrections --
@@ -205,8 +222,11 @@ def arg_input():
     # Take the hiseq project name from the given hiseq path
     hiseq_project = os.path.basename(args.hiseq_datapath)
 
+    # Take the samplesheet name from the given path (unique for each user)
+    samplesheet_name = os.path.basename(args.samplesheet_loc)
+
     # Extract project name by keeping the last part, starting from the 2nd char
-    project_name = hiseq_project.split('_')[-1][1:]
+    project_name = hiseq_project.split('_')[-1][1:] + '_' + samplesheet_name[:-4]
 
     # Generate the project folder and its subfolders.
     project = build_project_structure(project_name)
@@ -228,32 +248,47 @@ def arg_input():
     print('Calculating the plan for this project...')
     run_plan = calculate_plan(samplesheet_dict)
 
+    if len(run_plan.aggr_plan) > 2:
+        # Create a CSV file with the counts to be used by the 'cellranger aggr'
+        args_dict['aggr_csv_meta_file'] = create_aggr_csv(project, samplesheet_dict)
+        args_dict['aggregation_id'] = 'AGGR_' + project_name
+
     # Get the job description in a var to use it as prefix in the for loop
     job_descr = args.job_description
 
     print('Creating the appropriate scripts...')
-    # TODO: Create a for loop for all the files that have to be generated.
-    for script_name, bash_list, template in list(itertools.chain(*run_plan)):
+
+    # Loop to generate the necessary files
+    for scr_name, bash_list, loc, lom, template in list(itertools.chain(*run_plan)):
         # Append the SBATCH job description with the script name (no extension)
-        args.job_description = job_descr + '_' + script_name[:-3]
+        args.job_description = job_descr + '_' + scr_name[:-3]
 
         # Assign the script name to be used
-        args_dict['output'] = script_name
+        args_dict['output'] = scr_name
 
         # Add an argument for the list of lanes or samples
         args_dict['bash_lane_or_sample_list'] = bash_list
+
+        args_dict['cranger_localcores'] = loc
+        args_dict['cranger_localmem'] = lom
 
         # Generate the script, given the arguments and the template
         generate_script(args_dict, template=template)
 
         # Move the generated script to the appropriate location
-        move_files(script_name, project.root)
+        move_files(scr_name, project.root)
 
 
     # Edit the template file to generate the desired script
     #edit_template(args)
 
     print('Done.')
+
+
+# TODO!!!!!
+# TODO: At the end create a script to collect all the
+# TODO: slurm output files into the slurm_out folder
+# TODO!!!!
 
 
 def calculate_plan(samplesheet):
@@ -269,44 +304,104 @@ def calculate_plan(samplesheet):
     template to be used for the script's construction.
     """
 
-    lpn = uppmax_node.lanes_per_node
-    spn = uppmax_node.samples_per_node
+    mpn = uppmax_node.mkfq_per_node
+    cpn = uppmax_node.count_per_node
 
     # Calculate the number of mkfastq scripts to be generated
-    mkfastq_scripts = len(samplesheet['Lane']) / lpn
+    mkfastq_scripts = len(samplesheet['Lane']) / mpn
     mkfastq_scripts = int(ceil(mkfastq_scripts))
 
     # Calculate the number of count scripts to be generated
-    count_scripts = len(samplesheet['Sample']) / spn
+    count_scripts = len(samplesheet['Sample']) / cpn
     count_scripts = int(ceil(count_scripts))
 
-    # Initialize the predefind namedtuple with 2 empty lists
-    plan = scripts_to_gen([], [])
+    # Initialize the predefind namedtuple with 2/3 empty lists
+    # if count_scripts == 1:
+    #     plan = scripts_to_gen([], [], None)
+    # else:
+    plan = scripts_to_gen([], [], [])
+
+    cranger_info = namedtuple('cr_info', ['scr_name', 'bash_list',
+                                'localcores', 'localmem', 'template'])
 
     # Generate the names for the mkfastq scripts
     for i in range(mkfastq_scripts):
+        # Form the script name
+        script_name = 'mkfastq_' + str(i+1) + '.sh'
+
         # Get the lanes corespond to each script (in BASH style string list)
-        lanes = samplesheet['Lane'][i * lpn: (i+1) * lpn]
+        lanes = samplesheet['Lane'][i * mpn: (i+1) * mpn]
         lanes = " ".join(map(str, lanes))
 
-        plan.mkfastq_names.append(['mkfastq_' + str(i+1) + '.sh', lanes,
-                                'mkfastq_template.bash'])
+        # Get the cores per lane (to be added to the $LOCALC var)
+        cores_per_lane = uppmax_node.max_cores // len(lanes)
+
+        mem_per_lane = cores_per_lane * 7
+
+        mkfastq_info = cranger_info(script_name, lanes, cores_per_lane,
+                                    mem_per_lane, 'mkfastq_template.bash')
+
+        plan.mkfastq_plan.append(mkfastq_info)
+
+        # plan.mkfastq_names.append(['mkfastq_' + str(i+1) + '.sh', lanes,
+        #                         'mkfastq_template.bash'])
 
     # Generate the names for the count scripts
     for i in range(count_scripts):
+        # Form the script name
+        script_name = 'count_' + str(i+1) + '.sh'
+
         # Get the samples corespond to each script (in BASH style string list)
-        samples = samplesheet['Sample'][i * spn: (i+1) * spn]
+        samples = samplesheet['Sample'][i * cpn: (i+1) * cpn]
         samples = " ".join(map(str, samples))
 
-        plan.count_names.append(['count_' + str(i+1) + '.sh', samples,
-                                'count_template.bash'])
+        cores_per_sample = uppmax_node.max_cores // len(samples)
+        mem_per_sample = cores_per_sample * 7
+
+        count_info = cranger_info(script_name, samples, cores_per_sample,
+                                    mem_per_sample, 'count_template.bash')
+
+        plan.count_plan.append(count_info)
+        # plan.count_info.append(['count_' + str(i+1) + '.sh', samples,
+        #                         'count_template.bash'])
+
+    if len(samplesheet['Sample']) != 1:
+        cores = uppmax_node.max_cores
+        mem = uppmax_node.max_cores * 7
+
+        aggr_info = cranger_info('aggregation.sh', None, cores,
+                                    mem, 'aggr_template.bash')
+
+        plan.aggr_plan.append(aggr_info)
+        # plan.aggregation.append(['aggregation.sh', None, cores,
+        #                             mem, 'aggr_template.bash'])
 
     return plan
 
-# TODO!!!!!
-# TODO: At the end create a script to collect all the
-# TODO: slurm output files into the slurm_out folder
-# TODO!!!!
+
+def create_aggr_csv(project, samplesheet, fieldnames=None):
+    """
+    It geberates a .csv file that contains the appropriate information
+    about the 'count' output folders (named after the sample names in
+    the samplesheet), needed to run the aggregation process.
+    """
+
+    meta_csv = project.meta + 'aggregation_meta.csv'
+    with open(meta_csv, 'w') as f:
+        if fieldnames is None:
+            fieldnames = ['library_id', 'molecule_h5']
+
+        writer = csv.DictWriter(f, fieldnames=fieldnames)
+        writer.writeheader()
+
+        for sample in samplesheet['Sample']:
+            # Form the path to the 'molecule_h5' file
+            mol_path = project.counts + sample + '/outs/molecule_info.h5'
+
+            # Write the row to the .csv output file
+            writer.writerow({fieldnames[0]: sample, fieldnames[1]: mol_path})
+
+    return meta_csv
 
 
 def generate_script(args_dict, template):
@@ -323,7 +418,7 @@ def generate_script(args_dict, template):
     or deleting the next line too (if no value was given or if
     no such a key was found).
 
-    template: { 'mkfastq', 'count'}
+    template: { 'mkfastq', 'count' }
     """
 
     # Get a set of the given keys
@@ -433,10 +528,11 @@ def build_project_structure(project_name):
         print("Trying: " + project_dir)
 
     # Form the name of the necessary folders in the project dir
-    fastq_dir = project_dir + '/fastqs'
-    count_dir = project_dir + '/counts'
-    meta_dir  = project_dir + '/metadata'
-    out_dir   = project_dir + '/slurm_out'
+    fastq_dir = project_dir + '/fastqs/'
+    count_dir = project_dir + '/counts/'
+    meta_dir  = project_dir + '/metadata/'
+    out_dir   = project_dir + '/slurm_out/'
+    aggr_dir  = project_dir + '/aggregation/'
 
     # Try to create the project folder
     try:
@@ -448,10 +544,12 @@ def build_project_structure(project_name):
         os.mkdir(fastq_dir)
         os.mkdir(count_dir)
         os.mkdir(meta_dir)
+        os.mkdir(aggr_dir)
         os.mkdir(out_dir)
 
     # Instantiate the 'proj_struct' namedtuple for the project structure
-    project = proj_struct(project_dir, fastq_dir, count_dir, meta_dir, out_dir)
+    project = proj_struct(project_dir, fastq_dir, count_dir,
+                            aggr_dir, meta_dir, out_dir)
 
     # Change directory back to the script's original dir
     # os.chdir(sys.path[0])
@@ -599,6 +697,8 @@ if __name__ == "__main__":
 
     # print(len(sys.argv))
     if len(sys.argv) <= 1:
-        interactive_input()
+        args = interactive_input()
     else:
-        arg_input()
+        args = arg_input()
+
+    run(args)
