@@ -48,9 +48,9 @@ cd $DIR                                                         #
 # -- Create the necessary variables for the project --
 ?hiseq_datapath
 HISEQ_PATH=""
-?
+?cranger_localcores
 LOCALC=
-?
+?cranger_localmem
 LOCALM=
 
 # Get the Lanes as a list (space separated string)
