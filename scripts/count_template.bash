@@ -52,9 +52,9 @@ REF_ORGANISM=""
 SAMPLESHEET=""
 ?hiseq_datapath
 HISEQ_PATH=""
-?cranger_localcores
+?
 LOCALC=
-?cranger_localmem
+?
 LOCALM=
 
 
