@@ -91,10 +91,9 @@ def arg_input():
                             replace_whitespace=False)
 
     # Form the usage note text
-    usage_note = ["%(prog)s [-h] [-o <Output_Name>] -A <Uppmax_Project>\n",
-                    "\t-J <Jobname> [-p {core,node}] [-n int] [-N int]",
-                    "[-t {d-hh:mm:ss}]\n\t[--qos] -d <Data_Path> [-r {mm,hg}]",
-                    "-P <Project_Name> -s <Samplesheet>"]
+    usage_note = ["%(prog)s [-h] -d <Data_Path> -s <Samplesheet>\n",
+                    "\t-A <Uppmax_Project> -J <Jobname> [--qos] [-r {mm,hg}]\n",
+                    "\t[--aggr-norm {mapped,raw,None}] [--version]"]
 
     # Form the epiloge text
     epilog_note = ["NOTE: If you call the script without arguments it will\n",
@@ -258,36 +257,50 @@ def run(args):
 
     print('Creating the appropriate scripts...')
 
+    scr_names = [[],[],[]]
+
     # Loop to generate the necessary files
-    for scr_name, bash_list, loc, lom, template in list(itertools.chain(*run_plan)):
-        # Append the SBATCH job description with the script name (no extension)
-        args.job_description = job_descr + '_' + scr_name[:-3]
+    for i, plan_pack in enumerate(run_plan):
+        for plan in list(itertools.chain(plan_pack)):
+            # Unpack the packed plan variables
+            scr_name, bash_list, loc, lom, template = plan
 
-        # Assign the script name to be used
-        args_dict['output'] = scr_name
+            # Get the script names for each process
+            scr_names[i].append(scr_name)
 
-        # Add an argument for the list of lanes or samples
-        args_dict['bash_lane_or_sample_list'] = bash_list
+            # Append the SBATCH job description with the script name (no extension)
+            args.job_description = job_descr + '_' + scr_name[:-3]
 
-        args_dict['cranger_localcores'] = loc
-        args_dict['cranger_localmem'] = lom
+            # Assign the script name to be used
+            args_dict['output'] = scr_name
 
-        # Generate the script, given the arguments and the template
-        generate_script(args_dict, template=template)
+            # Add an argument for the list of lanes or samples
+            args_dict['bash_lane_or_sample_list'] = bash_list
 
-        # Move the generated script to the appropriate location
-        move_files(scr_name, project.root)
+            args_dict['cranger_localcores'] = loc
+            args_dict['cranger_localmem'] = lom
 
+            # Generate the script, given the arguments and the template
+            generate_script(args_dict, template=template)
+
+            # Move the generated script to the appropriate location
+            move_files(scr_name, project.root)
+
+
+    # Create and move the script to run all the sbatches
+    move_files(build_run_file(scr_names), project.root)
 
     # Edit the template file to generate the desired script
     #edit_template(args)
 
     print('Done.')
 
+# TODO: Calculate SBATCH Time
 
 # TODO!!!!!
 # TODO: At the end create a script to collect all the
 # TODO: slurm output files into the slurm_out folder
+# TODO: Use the $SLURM_JOB_ID, to suffix the job_id
 # TODO!!!!
 
 
@@ -522,9 +535,10 @@ def build_project_structure(project_name):
     # Check if a folder with the given name already exists
     # If exists, try suffixing with an ascending number
     count = itertools.count(1)
+
     while os.path.exists(project_dir):
         print("A folder with the given project name, already exists.")
-        project_dir = '_'.join(project_dir.split('_')[:2]) + '_' + str(count.next())
+        project_dir = '_'.join(project_dir.split('_')[:7]) + '_' + str(count.next())
         print("Trying: " + project_dir)
 
     # Form the name of the necessary folders in the project dir
@@ -562,92 +576,181 @@ def build_project_structure(project_name):
     return project
 
 
+def build_run_file(file_names, output_name=None):
+    """
+    Create a file to run all the sbatches, while keeping track
+    of the dependencies between them. i.e. mkfastq should run
+    first, and count should not start until all the mkfastq
+    jobs are finished. Same for the aggr, which has to wait
+    for the count jobs.
+
+    Input:
+        file_names: [list] A 2D list with the script names
+                    for each process
+
+    Returns:
+        output_name: [string] It returns the output file name
+    """
+
+    # Get a list of the file names for each process
+    mkfq_names = file_names[0]
+    cnt_names = file_names[1]
+    aggr_names = file_names[2]
+
+    # Get the number of scripts for each process (for aggregation is always 1)
+    mk_number = len(mkfq_names)
+    cnt_number = len(cnt_names)
+
+    # Template of the commands to form for calling the sbatch jobs
+    initial_job = "job{0}=$(sbatch {1} | awk '{{print $4}}')\n"
+    mid_job = "job{0}=$(sbatch --dependency=afterok{1} {2} | awk '{{print $4}}')\n"
+    final_job = "sbatch --dependency=afterok{0} {1}\n"
+
+    if output_name is None:
+        output_name = 'run_project.sh'
+
+    # Open a file and populate it
+    with open(output_name, 'w') as f:
+
+        # Write the appropriate shebang to the file
+        f.write("#!/bin/bash -l\n\n")
+
+        # Counter to track the number of jobs
+        job_counter = 1
+
+        # Form and Write the mkfastq sbatch calls to the output file
+        for mk_scr in mkfq_names:
+            f.write(initial_job.format(job_counter, mk_scr))
+            job_counter += 1
+
+        # Leave some space between the processes
+        f.write('\n')
+
+        # Get the job dependencies for the count process
+        dep_jobs = job_dependencies(1, mk_number + 1)
+
+        # Form and Write the count sbatch calls to the output file
+        for c_scr in cnt_names:
+            f.write(mid_job.format(job_counter, dep_jobs, c_scr))
+            job_counter += 1
+
+        # Leave some space between the processes
+        f.write('\n')
+
+        # Get the job dependencies for the aggregation process
+        dep_jobs = job_dependencies(mk_number + 1, mk_number + cnt_number + 1)
+
+        # Form and Write the aggr sbatch calls to the output file
+        for aggr_scr in aggr_names:
+            f.write(final_job.format(dep_jobs, aggr_scr))
+
+    return output_name
+
+
+def job_dependencies(first, last):
+    """
+    Create the dependencies for the sbatch jobs.
+    e.g. :$job1:$job2:$job3 ... linearly, from
+    the first to the last specified job number.
+
+    Inputs:
+        first: [int] the number of the 1st job
+        last:  [int] the number of the last job
+    """
+    dep_jobs = ""
+    for i in range(first, last):
+        dep_jobs += ":$job{0}".format(i)
+
+    return dep_jobs
+
+
+
 # TODO: Get the arguments as dictionary [vars(args)]
-def edit_template(args, template=None):
-    """
-    This function creates a new file based on a (given) template,
-    placing the appropriate given arguments in the right place.
-
-    Areas that need to be edited on the template script should
-    contain a '?' at the beginning of the line, followed by a
-    string that matches the given argument keys.
-
-    This function will delete this line, after either appending
-    the next line with the right value (if the value was given),
-    or deleting the next line too (if no value was given or if
-    no such a key was found).
-    """
-
-    # Get the arguments as a dictionary and get a set of the given keys
-    args_dict = vars(args)
-    args_keys = set(args_dict.keys())
-
-    # If no template name was given, use the default template.
-    if template is None:
-        template = 'scripts/template_script.bash'
-
-    if not os.path.exists(template):
-        # Form the path that the template is expected to be.
-        temp = fix_path(template)
-
-        if not temp:
-            print("Could not find the template file '{}' ".format(template), end='')
-            print("in the scripts folder. Exiting...")
-            exit(1)
-        else:
-            template = temp
-
-    # Avoid replacing/losing the template file...
-    if args.output == template or args.output == "template_script.bash":
-        print("The output name should NOT be the same as the template script.")
-        exit(3)
-
-    # Open the template script in read mode
-    with open(template, 'r') as template:
-        template_buf = iter(template.readlines())
-
-    # Open/Create the output file in write mode.
-    with open(args.output, 'w') as output:
-        for line in template_buf:
-            # Lines starting with '?' in the template, indicate
-            # positions where the argument keys can be found
-            if line.startswith('?'):
-                # Gets the string after '?' in a list
-                linesplit = line[1:].split()
-
-                # Get the matches of the key set and the linesplit as list
-                arg_match = list(args_keys.intersection(linesplit))
-
-                # Check whether only one match found
-                if arg_match and len(arg_match) == 1:
-                    # Get the value of the matched key
-                    arg_val = args_dict[arg_match[0]]
-
-                    # If the value is None, line should be omitted
-                    if arg_val is None:
-                        line = ''
-                        next(template_buf, None)
-
-                    else:
-                        # Get the next line and strip any extra whitespace
-                        next_line = next(template_buf).strip()
-
-                        # Is the last char of the line a quotation mark?
-                        if next_line[-1:] in ('"', "'"):
-                            # Place the argument value between quotation marks
-                            line = next_line[:-1] + str(arg_val) + next_line[-1:] + '\n'
-                        else:
-                            # Place the argument value at the end of the line
-                            line = next_line + ' ' + str(arg_val) + '\n'
-
-                else:
-                    # If more or None matches found line should be omitted
-                    line = ''
-                    next(template_buf, None)
-
-            # Write the edited template file into the final script file
-            output.write(line)
-
+# def edit_template(args, template=None):
+#     """
+#     This function creates a new file based on a (given) template,
+#     placing the appropriate given arguments in the right place.
+#
+#     Areas that need to be edited on the template script should
+#     contain a '?' at the beginning of the line, followed by a
+#     string that matches the given argument keys.
+#
+#     This function will delete this line, after either appending
+#     the next line with the right value (if the value was given),
+#     or deleting the next line too (if no value was given or if
+#     no such a key was found).
+#     """
+#
+#     # Get the arguments as a dictionary and get a set of the given keys
+#     args_dict = vars(args)
+#     args_keys = set(args_dict.keys())
+#
+#     # If no template name was given, use the default template.
+#     if template is None:
+#         template = 'scripts/template_script.bash'
+#
+#     if not os.path.exists(template):
+#         # Form the path that the template is expected to be.
+#         temp = fix_path(template)
+#
+#         if not temp:
+#             print("Could not find the template file '{}' ".format(template), end='')
+#             print("in the scripts folder. Exiting...")
+#             exit(1)
+#         else:
+#             template = temp
+#
+#     # Avoid replacing/losing the template file...
+#     if args.output == template or args.output == "template_script.bash":
+#         print("The output name should NOT be the same as the template script.")
+#         exit(3)
+#
+#     # Open the template script in read mode
+#     with open(template, 'r') as template:
+#         template_buf = iter(template.readlines())
+#
+#     # Open/Create the output file in write mode.
+#     with open(args.output, 'w') as output:
+#         for line in template_buf:
+#             # Lines starting with '?' in the template, indicate
+#             # positions where the argument keys can be found
+#             if line.startswith('?'):
+#                 # Gets the string after '?' in a list
+#                 linesplit = line[1:].split()
+#
+#                 # Get the matches of the key set and the linesplit as list
+#                 arg_match = list(args_keys.intersection(linesplit))
+#
+#                 # Check whether only one match found
+#                 if arg_match and len(arg_match) == 1:
+#                     # Get the value of the matched key
+#                     arg_val = args_dict[arg_match[0]]
+#
+#                     # If the value is None, line should be omitted
+#                     if arg_val is None:
+#                         line = ''
+#                         next(template_buf, None)
+#
+#                     else:
+#                         # Get the next line and strip any extra whitespace
+#                         next_line = next(template_buf).strip()
+#
+#                         # Is the last char of the line a quotation mark?
+#                         if next_line[-1:] in ('"', "'"):
+#                             # Place the argument value between quotation marks
+#                             line = next_line[:-1] + str(arg_val) + next_line[-1:] + '\n'
+#                         else:
+#                             # Place the argument value at the end of the line
+#                             line = next_line + ' ' + str(arg_val) + '\n'
+#
+#                 else:
+#                     # If more or None matches found line should be omitted
+#                     line = ''
+#                     next(template_buf, None)
+#
+#             # Write the edited template file into the final script file
+#             output.write(line)
+#
 
 def move_files(src, dest, copy=False):
     """
