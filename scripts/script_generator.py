@@ -274,6 +274,10 @@ def run(args):
             # Assign the script name to be used
             args_dict['output'] = scr_name
 
+            # Assign the slurm output name to be used
+            sbatch_out = project.out + scr_name[:-3] + '_$SLURM_JOB_ID.out'
+            args_dict['sbatch_output'] = sbatch_out
+
             # Add an argument for the list of lanes or samples
             args_dict['bash_lane_or_sample_list'] = bash_list
 
@@ -344,14 +348,14 @@ def calculate_plan(samplesheet):
 
         # Get the lanes corespond to each script (in BASH style string list)
         lanes = samplesheet['Lane'][i * mpn: (i+1) * mpn]
-        lanes = " ".join(map(str, lanes))
+        lanes_str = " ".join(map(str, lanes))
 
         # Get the cores per lane (to be added to the $LOCALC var)
         cores_per_lane = uppmax_node.max_cores // len(lanes)
 
         mem_per_lane = cores_per_lane * 7
 
-        mkfastq_info = cranger_info(script_name, lanes, cores_per_lane,
+        mkfastq_info = cranger_info(script_name, lanes_str, cores_per_lane,
                                     mem_per_lane, 'mkfastq_template.bash')
 
         plan.mkfastq_plan.append(mkfastq_info)
@@ -366,12 +370,12 @@ def calculate_plan(samplesheet):
 
         # Get the samples corespond to each script (in BASH style string list)
         samples = samplesheet['Sample'][i * cpn: (i+1) * cpn]
-        samples = " ".join(map(str, samples))
+        samples_str = " ".join(map(str, samples))
 
         cores_per_sample = uppmax_node.max_cores // len(samples)
         mem_per_sample = cores_per_sample * 7
 
-        count_info = cranger_info(script_name, samples, cores_per_sample,
+        count_info = cranger_info(script_name, samples_str, cores_per_sample,
                                     mem_per_sample, 'count_template.bash')
 
         plan.count_plan.append(count_info)
@@ -486,10 +490,13 @@ def generate_script(args_dict, template):
                         # Get the next line and strip any extra whitespace
                         next_line = next(template_buf).strip()
 
-                        # Is the last char of the line a quotation mark?
+                        # Is the last char of the line a quotation mark or an '='?
                         if next_line[-1:] in ('"', "'"):
                             # Place the argument value between quotation marks
                             line = next_line[:-1] + str(arg_val) + next_line[-1:] + '\n'
+                        elif next_line[-1:] is '=':
+                            # Place the argument value next to '=' without space
+                            line = next_line + str(arg_val) + '\n'
                         else:
                             # Place the argument value at the end of the line
                             line = next_line + ' ' + str(arg_val) + '\n'
