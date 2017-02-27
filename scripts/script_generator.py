@@ -275,7 +275,7 @@ def run(args):
             args_dict['output'] = scr_name
 
             # Assign the slurm output name to be used
-            sbatch_out = project.out + scr_name[:-3] + '_$SLURM_JOB_ID.out'
+            sbatch_out = project.out + scr_name[:-3] + '.out'
             args_dict['sbatch_output'] = sbatch_out
 
             # Add an argument for the list of lanes or samples
@@ -304,7 +304,7 @@ def run(args):
 # TODO!!!!!
 # TODO: At the end create a script to collect all the
 # TODO: slurm output files into the slurm_out folder
-# TODO: Use the $SLURM_JOB_ID, to suffix the job_id
+# TODO: Use the $SLURM_JOB_ID, to suffix the job_id <<<--- doesn't work!!!
 # TODO!!!!
 
 
