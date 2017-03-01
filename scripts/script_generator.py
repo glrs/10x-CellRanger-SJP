@@ -263,7 +263,7 @@ def run(args):
     for i, plan_pack in enumerate(run_plan):
         for plan in list(itertools.chain(plan_pack)):
             # Unpack the packed plan variables
-            scr_name, bash_list, loc, lom, template = plan
+            scr_name, bash_list, loc, lom, runtime, template = plan
 
             # Get the script names for each process
             scr_names[i].append(scr_name)
@@ -284,6 +284,11 @@ def run(args):
             args_dict['cranger_localcores'] = loc
             args_dict['cranger_localmem'] = lom
 
+            if args.use_qos_short:
+                args_dict['time_request'] = "15:00"
+            else:
+                args_dict['time_request'] = runtime
+
             # Generate the script, given the arguments and the template
             generate_script(args_dict, template=template)
 
@@ -299,11 +304,8 @@ def run(args):
 
     print('Done.')
 
-# TODO: Calculate SBATCH Time
 
 # TODO!!!!!
-# TODO: At the end create a script to collect all the
-# TODO: slurm output files into the slurm_out folder
 # TODO: Use the $SLURM_JOB_ID, to suffix the job_id <<<--- doesn't work!!!
 # TODO!!!!
 
@@ -338,8 +340,8 @@ def calculate_plan(samplesheet):
     # else:
     plan = scripts_to_gen([], [], [])
 
-    cranger_info = namedtuple('cr_info', ['scr_name', 'bash_list',
-                                'localcores', 'localmem', 'template'])
+    cranger_info = namedtuple('cr_info', ['scr_name', 'bash_list', 'localcores',
+                                        'localmem', 'runtime', 'template'])
 
     # Generate the names for the mkfastq scripts
     for i in range(mkfastq_scripts):
@@ -355,8 +357,11 @@ def calculate_plan(samplesheet):
 
         mem_per_lane = cores_per_lane * 7
 
-        mkfastq_info = cranger_info(script_name, lanes_str, cores_per_lane,
-                                    mem_per_lane, 'mkfastq_template.bash')
+        runtime = calc_run_time(len(lanes), 'mkfastq_runtime')
+
+        mkfastq_info = cranger_info(script_name, lanes_str,
+                                    cores_per_lane, mem_per_lane,
+                                    runtime, 'mkfastq_template.bash')
 
         plan.mkfastq_plan.append(mkfastq_info)
 
@@ -375,8 +380,11 @@ def calculate_plan(samplesheet):
         cores_per_sample = uppmax_node.max_cores // len(samples)
         mem_per_sample = cores_per_sample * 7
 
-        count_info = cranger_info(script_name, samples_str, cores_per_sample,
-                                    mem_per_sample, 'count_template.bash')
+        runtime = calc_run_time(len(samples), 'count_runtime')
+
+        count_info = cranger_info(script_name, samples_str,
+                                    cores_per_sample, mem_per_sample,
+                                    runtime, 'count_template.bash')
 
         plan.count_plan.append(count_info)
         # plan.count_info.append(['count_' + str(i+1) + '.sh', samples,
@@ -386,14 +394,45 @@ def calculate_plan(samplesheet):
         cores = uppmax_node.max_cores
         mem = uppmax_node.max_cores * 7
 
+        runtime = calc_run_time(len(samplesheet['Sample']), 'aggr_runtime')
+
         aggr_info = cranger_info('aggregation.sh', None, cores,
-                                    mem, 'aggr_template.bash')
+                                    mem, runtime, 'aggr_template.bash')
 
         plan.aggr_plan.append(aggr_info)
         # plan.aggregation.append(['aggregation.sh', None, cores,
         #                             mem, 'aggr_template.bash'])
 
     return plan
+
+
+def calc_run_time(iters, time_tag):
+
+    import datetime
+
+    if time_tag == 'mkfastq_runtime':
+        secs = 486 * iters + 3771 + 7200
+
+    elif time_tag == 'count_runtime':
+        secs = 9033 * iters + 139080 + 14400
+
+    elif time_tag == 'aggr_runtime':
+        secs = 1098 * iters + 11282 + 7200
+
+    else:
+        print('The time tag given is incorrect.\nExiting...')
+        exit(4)
+
+    # Transform the seconds into datetime ([d days, ]HH:MM:SS)
+    uptime = str(datetime.timedelta(seconds=secs))
+
+    # Return the datetime if there are no days (i.e. HH:MM:SS)
+    if len(uptime.split()) == 1:
+        return uptime
+
+    # If there are days, return the datetime appropriately (i.e. d-HH:MM:SS)
+    return uptime.split()[0] + '-' + uptime.split()[-1]
+
 
 
 def create_aggr_csv(project, samplesheet, fieldnames=None):

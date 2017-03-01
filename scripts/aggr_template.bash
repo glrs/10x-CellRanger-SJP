@@ -10,7 +10,7 @@
 ?ram_memory
 #SBATCH -C
 ?use_qos_short
-#SBATCH --qos=short
+#SBATCH --qos=
 ?time_request
 #SBATCH -t
 ?job_description
