@@ -18,7 +18,7 @@
 ?sbatch_output
 #SBATCH --output=
 
-# ================== SOME UGLY CODE FOLLOWS =================== #
+# ================== NOTHING TO CARE ABOUT ==================== #
 #  -- Always change directory to the project's root dir         #
 # where the script is located. This helps the orientation       #
 # of the script relative to the project.                        #
