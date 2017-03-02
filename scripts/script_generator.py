@@ -9,6 +9,7 @@ from math import ceil
 import os
 import sys
 import csv
+import errno
 import shutil
 import argparse
 import textwrap
@@ -224,7 +225,9 @@ def run(args):
     # Take the samplesheet name from the given path (unique for each user)
     samplesheet_name = os.path.basename(args.samplesheet_loc)
 
-    # Extract project name by keeping the last part, starting from the 2nd char
+    # Extract the hiseq project name by keeping the last part, starting
+    # from the 2nd char, and the samplesheet name without the extension
+    # and combine them to form the project name
     project_name = hiseq_project.split('_')[-1][1:] + '_' + samplesheet_name[:-4]
 
     # Generate the project folder and its subfolders.
@@ -298,6 +301,10 @@ def run(args):
 
     # Create and move the script to run all the sbatches
     move_files(build_run_file(scr_names), project.root)
+
+    # TODO: Create link to the run_script.sh from the project root directory
+    link_name = "run_project_" + project_name
+    symlink_force(project.root + "run_project.sh", link_name)
 
     # Edit the template file to generate the desired script
     #edit_template(args)
@@ -608,7 +615,7 @@ def build_project_structure(project_name):
         os.mkdir(out_dir)
 
     # Instantiate the 'proj_struct' namedtuple for the project structure
-    project = proj_struct(project_dir, fastq_dir, count_dir,
+    project = proj_struct(project_dir  + '/', fastq_dir, count_dir,
                             aggr_dir, meta_dir, out_dir)
 
     # Change directory back to the script's original dir
@@ -638,6 +645,19 @@ def build_run_file(file_names, output_name=None):
         output_name: [string] It returns the output file name
     """
 
+    template = 'run_proj_template.bash'
+
+    if not os.path.exists(template):
+        # Form the path that the template is expected to be.
+        temp = fix_path(template)
+
+        if not temp:
+            print("Could not find the template file '{}' ".format(template), end='')
+            print("in the scripts folder. Exiting...")
+            exit(1)
+        else:
+            template = temp
+
     # Get a list of the file names for each process
     mkfq_names = file_names[0]
     cnt_names = file_names[1]
@@ -655,11 +675,17 @@ def build_run_file(file_names, output_name=None):
     if output_name is None:
         output_name = 'run_project.sh'
 
+    # Open the template script in read mode
+    with open(template, 'r') as template:
+        template_buf = iter(template.readlines())
+
     # Open a file and populate it
     with open(output_name, 'w') as f:
+        # Write the standard prefix we got from the template
+        for line in template_buf:
+            f.write(line)
 
-        # Write the appropriate shebang to the file
-        f.write("#!/bin/bash -l\n\n")
+        f.write('\n')
 
         # Counter to track the number of jobs
         job_counter = 1
@@ -833,6 +859,23 @@ def fix_path(path, target='scripts'):
         return path
     else:
         return False
+
+
+def symlink_force(target, link_name):
+    """
+    Simutates the Unix command for updating soft links:
+
+        $ ln -sf <source> <destination>
+    """
+    try:
+        os.symlink(target, link_name)
+    except OSError, e:
+        if e.errno == errno.EEXIST:
+            os.remove(link_name)
+            os.symlink(target, link_name)
+        else:
+            raise e
+
 
 if __name__ == "__main__":
     # Move the working directory to the local root folder
