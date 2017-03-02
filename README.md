@@ -25,7 +25,7 @@ Here I created a workaround (rather than a solution) to this problem. I made thi
 ## Usage
 Adapt the 10xGenomics Pipeline to your new Project.
 ```
-$ python script_generator.py [-h] -d <Data_Path> -s <Samplesheet> -A <Uppmax_Project> -J <Jobname> [--qos] [-r {mm,hg}] [--aggr-norm {mapped,raw,None}] [--version]
+$ python script_generator.py [-h] -d <Data_Path> -s <Samplesheet> -A <Slurm_Project> -J <Jobname> [--qos] [-r {mm,hg}] [--aggr-norm {mapped,raw,None}] [--version]
  ```
 
 ### General arguments
