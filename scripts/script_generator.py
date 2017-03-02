@@ -148,8 +148,8 @@ def arg_input():
 
     # Create an argument group for variables related to a project
     group_vars = parser.add_argument_group('Script Variables',
-                        " ".join(["Variables you need to specify",
-                                "about your project (e.g. file paths)"]))
+                        " ".join(["Variables about your project",
+                                "(e.g. file paths)"]))
 
     # -- Add the arguments for the project variables group --
     group_vars.add_argument('-d', '--hiseq-datapath', required=True, metavar='',
