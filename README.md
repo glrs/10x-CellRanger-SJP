@@ -22,6 +22,23 @@ Most of the bioinformatics tools to date, are not mature enough to make efficien
 ### The workaround
 Here I created a workaround (rather than a solution) to this problem. I made this Python script, which based on the given parameters it decides how to devide a project into small jobs that run individually in their own node.
 
+## Installation
+### Before you start
+(This steps will soon become automatic.)
+Make sure your folder structure looks like this:
+```
+10x-CellRanger-SJP
+  |
+  +-- cellranger-1.2.0/
+  |
+  +-- references/
+  |
+  +-- scripts/
+  |
+  +-- projects/
+```
+Make sure your cellranger installation is under the `cellranger-1.2.0` directory. Place the references in the `references` folder. Then download the python script and the template files in the `scripts` folder.
+
 ## Usage
 Adapt the 10xGenomics Pipeline to your new Project.
 ```
