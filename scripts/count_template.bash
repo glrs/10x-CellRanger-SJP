@@ -18,7 +18,7 @@
 ?sbatch_output
 #SBATCH --output=
 
-# ================== NOTHING TO CARE ABOUT ==================== #
+# =================== STUFF BEFORE RUNNING ==================== #
 #  -- Always change directory to the project's root dir         #
 # where the script is located. This helps the orientation       #
 # of the script relative to the project.                        #
@@ -41,6 +41,10 @@ done                                                            #
 # Form the directory and move there                             #
 DIR="$( cd -P "$( dirname "$SOURCE" )" && pwd )"                #
 cd $DIR                                                         #
+                                                                #
+# Print and keep the start time to calculate the run time       #
+START_TIME=`date +%s`                                           #
+echo $(date)                                                    #
 # ============================================================= #
 
 
@@ -103,3 +107,14 @@ do
   # TODO: Check 'localcores' and 'localmem'. Do some automation
   ../../../cellranger-1.2.0/cellranger count --id=$sample --transcriptome="../../../references/$REF_GENOME" --fastqs="../fastqs/$fastq_dir/outs/fastq_path/" --sample=$sample --localcores=$LOCALC --localmem=$LOCALM &
 done
+
+
+# ========================== STUFF AFTER RUNNING ============================= #
+# Calculate and print the run and the end time                                 #
+END_TIME=`date +%s`                                                            #
+RUN_TIME=$((END_TIME - START_TIME))                                            #
+                                                                               #
+echo $(date)                                                                   #
+printf 'Script was running for: '                                              #
+printf '%d-%02d:%02d:%02d\n' $(($RUN_TIME/86400)) $(($RUN_TIME/3600)) $(($RUN_TIME%3600/60)) $(($RUN_TIME%60))
+# ============================================================================ #

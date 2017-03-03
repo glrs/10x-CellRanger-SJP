@@ -18,7 +18,7 @@
 ?sbatch_output
 #SBATCH --output=
 
-# ================== NOTHING TO CARE ABOUT ==================== #
+# =================== STUFF BEFORE RUNNING ==================== #
 #  -- Always change directory to the project's root dir         #
 # where the script is located. This helps the orientation       #
 # of the script relative to the project.                        #
@@ -41,7 +41,12 @@ done                                                            #
 # Form the directory and move there                             #
 DIR="$( cd -P "$( dirname "$SOURCE" )" && pwd )"                #
 cd $DIR                                                         #
+                                                                #
+# Print and keep the start time to calculate the run time       #
+START_TIME=`date +%s`                                           #
+echo $(date)                                                    #
 # ============================================================= #
+
 
 ?aggregation_id
 AGGR_ID=""
@@ -55,3 +60,14 @@ LOCALC=
 LOCALM=
 
 ../../../cellranger-1.2.0/cellranger aggr --id=$AGGR_ID --csv="$RUNPATH/metadata/$AGGR_CSV" --normalize=$NORM --localcores=$LOCALC --localmem=$LOCALM
+
+
+# ========================== STUFF AFTER RUNNING ============================= #
+# Calculate and print the run and the end time                                 #
+END_TIME=`date +%s`                                                            #
+RUN_TIME=$((END_TIME - START_TIME))                                            #
+                                                                               #
+echo $(date)                                                                   #
+printf 'Script was running for: '                                              #
+printf '%d-%02d:%02d:%02d\n' $(($RUN_TIME/86400)) $(($RUN_TIME/3600)) $(($RUN_TIME%3600/60)) $(($RUN_TIME%60))
+# ============================================================================ #
