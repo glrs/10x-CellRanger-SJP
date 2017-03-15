@@ -52,6 +52,8 @@ echo $(date)                                                    #
 # -- Create the necessary variables for the project --
 ?hiseq_datapath
 HISEQ_PATH=""
+?samplesheet_loc
+SAMPLESHEET=""
 ?cranger_localcores
 LOCALC=
 ?cranger_localmem
@@ -84,7 +86,7 @@ for lane in $lanes
 do
   # Run CellRanger mkfastq command
   # TODO: Add 'localcores' and 'localmem' restrictions.
-  ../../../cellranger-1.2.0/cellranger mkfastq --run="$HISEQ_PATH" --csv="../metadata/$SAMPLESHEET" --lanes=$lane --localcores=$LOCALC --localmem=$LOCALM &
+  ../../../cellranger-1.2.1/cellranger mkfastq --run="$HISEQ_PATH" --csv="../metadata/$SAMPLESHEET" --lanes=$lane --localcores=$LOCALC --localmem=$LOCALM &
 done
 
 echo "Waiting CellRanger mkfastq to finish for Lanes: $lanes."

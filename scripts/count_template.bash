@@ -105,7 +105,7 @@ do
   fastq_dir=$proj_name"_"$extr_lane
 
   # TODO: Check 'localcores' and 'localmem'. Do some automation
-  ../../../cellranger-1.2.0/cellranger count --id=$sample --transcriptome="../../../references/$REF_GENOME" --fastqs="../fastqs/$fastq_dir/outs/fastq_path/" --sample=$sample --localcores=$LOCALC --localmem=$LOCALM &
+  ../../../cellranger-1.2.1/cellranger count --id=$sample --transcriptome="../../../references/$REF_GENOME" --fastqs="../fastqs/$fastq_dir/outs/fastq_path/" --sample=$sample --localcores=$LOCALC --localmem=$LOCALM &
 done
 
 

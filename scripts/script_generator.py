@@ -9,6 +9,7 @@ from math import ceil
 import os
 import sys
 import csv
+import stat
 import errno
 import shutil
 import argparse
@@ -218,6 +219,8 @@ def run(args):
         print("The hiseq data-path you provided is not valid. Exiting...")
         exit(1)
 
+    # Normalize the hiseq project path argument
+    args.hiseq_datapath = os.path.normpath(args.hiseq_datapath)
 
     # Take the hiseq project name from the given hiseq path
     hiseq_project = os.path.basename(args.hiseq_datapath)
@@ -300,7 +303,8 @@ def run(args):
 
 
     # Create and move the script to run all the sbatches
-    move_files(build_run_file(scr_names), project.root)
+    run_file = build_run_file(scr_names)
+    move_files(run_file, project.root)
 
     # TODO: Create link to the run_script.sh from the project root directory
     link_name = "run_project_" + project_name
@@ -715,6 +719,11 @@ def build_run_file(file_names, output_name=None):
         # Form and Write the aggr sbatch calls to the output file
         for aggr_scr in aggr_names:
             f.write(final_job.format(dep_jobs, aggr_scr))
+
+        # Make the file executable
+        mode = os.fstat(f.fileno()).st_mode
+        mode |= stat.S_IXUSR | stat.S_IXGRP | stat.S_IXOTH
+        os.fchmod(f.fileno(), stat.S_IMODE(mode))
 
     return output_name
 

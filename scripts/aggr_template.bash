@@ -59,7 +59,7 @@ LOCALC=
 ?cranger_localmem
 LOCALM=
 
-../../../cellranger-1.2.0/cellranger aggr --id=$AGGR_ID --csv="$RUNPATH/metadata/$AGGR_CSV" --normalize=$NORM --localcores=$LOCALC --localmem=$LOCALM
+../../../cellranger-1.2.1/cellranger aggr --id=$AGGR_ID --csv="../metadata/$AGGR_CSV" --normalize=$NORM --localcores=$LOCALC --localmem=$LOCALM
 
 
 # ========================== STUFF AFTER RUNNING ============================= #
