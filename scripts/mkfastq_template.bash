@@ -66,6 +66,8 @@ lanes=""
 
 # Get the hiseq directory name (without the path)
 hiseq_dir=$(basename $HISEQ_PATH)
+# TODO: WHY DO I DO THIS TWICE???
+
 # Extract the project's name from the hiseq dir name
 proj_name=$(awk -F"_" '{print substr($NF, 2);}' <<< $hiseq_dir)
 
@@ -73,7 +75,7 @@ proj_name=$(awk -F"_" '{print substr($NF, 2);}' <<< $hiseq_dir)
 # -- Create the necessary variables for the project --
 # Get the hiseq directory name (without the path)
 hiseq_dir=$(basename $HISEQ_PATH)
-
+# TODO: WHY DO I DO THIS TWICE???
 
 # -- Run CellRanger mkfastq --
 

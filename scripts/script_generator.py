@@ -253,7 +253,8 @@ def run(args):
     print('Calculating the plan for this project...')
     run_plan = calculate_plan(samplesheet_dict)
 
-    if len(run_plan.aggr_plan) > 2:
+    # if len(run_plan.aggr_plan) > 2:
+    if  run_plan.aggr_plan:
         # Create a CSV file with the counts to be used by the 'cellranger aggr'
         args_dict['aggr_csv_meta_file'] = create_aggr_csv(project, samplesheet_dict)
         args_dict['aggregation_id'] = 'AGGR_' + project_name
@@ -376,8 +377,6 @@ def calculate_plan(samplesheet):
 
         plan.mkfastq_plan.append(mkfastq_info)
 
-        # plan.mkfastq_names.append(['mkfastq_' + str(i+1) + '.sh', lanes,
-        #                         'mkfastq_template.bash'])
 
     # Generate the names for the count scripts
     for i in range(count_scripts):
@@ -398,8 +397,7 @@ def calculate_plan(samplesheet):
                                     runtime, 'count_template.bash')
 
         plan.count_plan.append(count_info)
-        # plan.count_info.append(['count_' + str(i+1) + '.sh', samples,
-        #                         'count_template.bash'])
+
 
     if len(samplesheet['Sample']) != 1:
         cores = uppmax_node.max_cores
@@ -411,8 +409,6 @@ def calculate_plan(samplesheet):
                                     mem, runtime, 'aggr_template.bash')
 
         plan.aggr_plan.append(aggr_info)
-        # plan.aggregation.append(['aggregation.sh', None, cores,
-        #                             mem, 'aggr_template.bash'])
 
     return plan
 
@@ -459,7 +455,9 @@ def create_aggr_csv(project, samplesheet, fieldnames=None):
             fieldnames = ['library_id', 'molecule_h5']
 
         writer = csv.DictWriter(f, fieldnames=fieldnames)
-        writer.writeheader()
+
+        # writer.writeheader() # This added on Python 2.7, so it won't work on 2.6
+        writer.writerow(dict((fn, fn) for fn in writer.fieldnames))
 
         for sample in samplesheet['Sample']:
             # Form the path to the 'molecule_h5' file
