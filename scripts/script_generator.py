@@ -282,7 +282,8 @@ def run(args):
             args_dict['output'] = scr_name
 
             # Assign the slurm output name to be used
-            sbatch_out = project.out + scr_name[:-3] + '.out'
+            # sbatch_out = project.out + scr_name[:-3] + '.out'
+            sbatch_out = 'slurm_out/' + scr_name[:-3] + '.out'
             args_dict['sbatch_output'] = sbatch_out
 
             # Add an argument for the list of lanes or samples
