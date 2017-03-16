@@ -63,6 +63,9 @@ LOCALC=
 ?cranger_localmem
 LOCALM=
 
+# TODO: Most probably I'll need to change directory to 'aggregation'
+# cd 'aggregation'
+
 ../../../cellranger-1.2.1/cellranger aggr --id=$AGGR_ID --csv="../metadata/$AGGR_CSV" --normalize=$NORM --localcores=$LOCALC --localmem=$LOCALM
 
 
