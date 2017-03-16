@@ -95,7 +95,7 @@ fi
 # -- Run CellRanger count --
 
 # Move to the 'counts' dir to run cellranger count, so its output goes there.
-cd '../counts'
+cd 'counts'
 
 
 # TODO: Get the number of iterations to calculate the localcores/localmem based on the choosen plan
