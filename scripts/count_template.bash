@@ -112,6 +112,8 @@ do
   ../../../cellranger-1.2.1/cellranger count --id=$sample --transcriptome="../../../references/$REF_GENOME" --fastqs="../fastqs/$fastq_dir/outs/fastq_path/" --sample=$sample --localcores=$LOCALC --localmem=$LOCALM &
 done
 
+echo "Waiting CellRanger count to finish for samples: $sample_array"
+wait
 
 # ========================== STUFF AFTER RUNNING ============================= #
 # Calculate and print the run and the end time                                 #

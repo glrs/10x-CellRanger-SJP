@@ -448,6 +448,8 @@ def create_aggr_csv(project, samplesheet, fieldnames=None):
     It geberates a .csv file that contains the appropriate information
     about the 'count' output folders (named after the sample names in
     the samplesheet), needed to run the aggregation process.
+
+    Return: Generated file's name
     """
 
     meta_csv = project.meta + 'aggregation_meta.csv'
@@ -462,12 +464,12 @@ def create_aggr_csv(project, samplesheet, fieldnames=None):
 
         for sample in samplesheet['Sample']:
             # Form the path to the 'molecule_h5' file
-            mol_path = project.counts + sample + '/outs/molecule_info.h5'
+            mol_path = '../counts/' + sample + '/outs/molecule_info.h5'
 
             # Write the row to the .csv output file
             writer.writerow({fieldnames[0]: sample, fieldnames[1]: mol_path})
 
-    return meta_csv
+    return os.path.basename(meta_csv)
 
 
 def generate_script(args_dict, template):
