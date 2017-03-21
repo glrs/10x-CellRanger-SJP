@@ -48,10 +48,6 @@ echo $(date)                                                    #
 # ============================================================= #
 
 
-# Load the bcl2fastq (v2.17.1) module
-module load bioinfo-tools
-module load bcl2fastq/2.17.1
-
 ?aggregation_id
 AGGR_ID=""
 ?aggr_csv_meta_file
@@ -63,8 +59,8 @@ LOCALC=
 ?cranger_localmem
 LOCALM=
 
-# TODO: Most probably I'll need to change directory to 'aggregation'
-# cd 'aggregation'
+# Change directory to 'aggregation'
+cd 'aggregation'
 
 ../../../cellranger-1.2.1/cellranger aggr --id=$AGGR_ID --csv="../metadata/$AGGR_CSV" --normalize=$NORM --localcores=$LOCALC --localmem=$LOCALM
 
