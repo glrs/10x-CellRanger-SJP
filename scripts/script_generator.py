@@ -419,13 +419,13 @@ def calc_run_time(iters, time_tag):
     import datetime
 
     if time_tag == 'mkfastq_runtime':
-        secs = 486 * iters + 3771 + 7200
+        secs = 486 * iters + 3771 #+ 7200
 
     elif time_tag == 'count_runtime':
-        secs = 9033 * iters + 139080 + 14400
+        secs = 9033 * iters + 139080 #+ 14400
 
     elif time_tag == 'aggr_runtime':
-        secs = 1098 * iters + 11282 + 7200
+        secs = 1098 * iters + 11282 #+ 7200
 
     else:
         print('The time tag given is incorrect.\nExiting...')
@@ -745,94 +745,6 @@ def job_dependencies(first, last):
 
     return dep_jobs
 
-
-
-# TODO: Get the arguments as dictionary [vars(args)]
-# def edit_template(args, template=None):
-#     """
-#     This function creates a new file based on a (given) template,
-#     placing the appropriate given arguments in the right place.
-#
-#     Areas that need to be edited on the template script should
-#     contain a '?' at the beginning of the line, followed by a
-#     string that matches the given argument keys.
-#
-#     This function will delete this line, after either appending
-#     the next line with the right value (if the value was given),
-#     or deleting the next line too (if no value was given or if
-#     no such a key was found).
-#     """
-#
-#     # Get the arguments as a dictionary and get a set of the given keys
-#     args_dict = vars(args)
-#     args_keys = set(args_dict.keys())
-#
-#     # If no template name was given, use the default template.
-#     if template is None:
-#         template = 'scripts/template_script.bash'
-#
-#     if not os.path.exists(template):
-#         # Form the path that the template is expected to be.
-#         temp = fix_path(template)
-#
-#         if not temp:
-#             print("Could not find the template file '{}' ".format(template), end='')
-#             print("in the scripts folder. Exiting...")
-#             exit(1)
-#         else:
-#             template = temp
-#
-#     # Avoid replacing/losing the template file...
-#     if args.output == template or args.output == "template_script.bash":
-#         print("The output name should NOT be the same as the template script.")
-#         exit(3)
-#
-#     # Open the template script in read mode
-#     with open(template, 'r') as template:
-#         template_buf = iter(template.readlines())
-#
-#     # Open/Create the output file in write mode.
-#     with open(args.output, 'w') as output:
-#         for line in template_buf:
-#             # Lines starting with '?' in the template, indicate
-#             # positions where the argument keys can be found
-#             if line.startswith('?'):
-#                 # Gets the string after '?' in a list
-#                 linesplit = line[1:].split()
-#
-#                 # Get the matches of the key set and the linesplit as list
-#                 arg_match = list(args_keys.intersection(linesplit))
-#
-#                 # Check whether only one match found
-#                 if arg_match and len(arg_match) == 1:
-#                     # Get the value of the matched key
-#                     arg_val = args_dict[arg_match[0]]
-#
-#                     # If the value is None, line should be omitted
-#                     if arg_val is None:
-#                         line = ''
-#                         next(template_buf, None)
-#
-#                     else:
-#                         # Get the next line and strip any extra whitespace
-#                         next_line = next(template_buf).strip()
-#
-#                         # Is the last char of the line a quotation mark?
-#                         if next_line[-1:] in ('"', "'"):
-#                             # Place the argument value between quotation marks
-#                             line = next_line[:-1] + str(arg_val) + next_line[-1:] + '\n'
-#                         else:
-#                             # Place the argument value at the end of the line
-#                             line = next_line + ' ' + str(arg_val) + '\n'
-#
-#                 else:
-#                     # If more or None matches found line should be omitted
-#                     line = ''
-#                     next(template_buf, None)
-#
-#             # Write the edited template file into the final script file
-#             output.write(line)
-#
 
 def move_files(src, dest, copy=False):
     """
