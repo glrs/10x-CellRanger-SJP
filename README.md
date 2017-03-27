@@ -96,6 +96,8 @@ Once the projects you were running are done, you may want to deliver the data to
 | -v, --version  | shows program's version number and exits |
 | -p, --project  | Names of the projects you want to include in the deliverable. |
 | -f, --fastq    | If set, it will also include the fastqs in the deliverable. |
-| -o, --output   | (Optional) The name of the deliverable to be created. If not given, the common part of the project names will be used. |
+| -o, --output   | (Optional) The name of the deliverable to be created. |
 
-__NOTE__: You can give multiple projects by simply separete them with space. Note that the projects should be part of a bigger biological project. In other words, this part of the name: `10X_YY_NNN_##` should be common.
+__NOTE__:
+* You can give multiple projects by simply separete them with space. Note that the projects should be part of a bigger biological project. In other words, this part of the name: `10X_YY_NNN_##` should be common.
+*  If `-o, --output` argument is not given, the common part of the project names will be used for the naming of the output.
