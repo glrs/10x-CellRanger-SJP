@@ -84,7 +84,7 @@ __NOTE__: If you call the script without arguments it will
 ## Make Deliverables
 Once the projects you were running are done, you may want to deliver the data to someone, or keep them organized for yourself. To do that you can use the `make_deliverable.py` script, which will aggregate the data of the given projects into one folder. (The given projects have to be subject of a common biological project. That means part of the project name should much.)
 
-### Arguments
+### Parameters
 | Argument | Description    |
 |----------|:--------------:|
 | -h, --help | show the help message and exits |
