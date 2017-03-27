@@ -91,7 +91,7 @@ Once the projects you were running are done, you may want to deliver the data to
 
 ### Parameters
 | Argument | Description    |
-|---------------|:--------------:|
+|---------------:|:--------------:|
 | -h, --help | show the help message and exits |
 | -v, --version | shows program's version number and exits |
 | -p, --project | Names of the projects you want to include in the deliverable. You can give multiple projects by simply separete them with space. Note that the projects should be part of a bigger biological project. In other words, this part of the name: `10X_YY_NNN_##` should be common. |
