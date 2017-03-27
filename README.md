@@ -31,11 +31,13 @@ Make sure your folder structure looks like this:
   |
   +-- cellranger-1.2.0/
   |
+  +-- deliverables
+  |
+  +-- projects
+  |
   +-- references/
   |
   +-- scripts/
-  |
-  +-- projects/
 ```
 Make sure your cellranger installation is under the `cellranger-1.2.0` directory. Place the references in the `references` folder. Then download the python script and the template files in the `scripts` folder.
 
@@ -47,10 +49,10 @@ $ python script_generator.py [-h] -d <Data_Path> -s <Samplesheet> -A <Slurm_Proj
 
 ### General arguments
 
-|  Arguments     |   Description                                |
+|  Argument     |   Description                                |
 |----------------|:--------------------------------------------:|
-|  -h, --help    |        show this help message and exit       |
-|  --version     |        show program's version number and exit|
+|  -h, --help    |        shows the help message and exits        |
+|  --version     |        shows program's version number and exits|
 
 
 ### #SBATCH arguments
@@ -58,7 +60,7 @@ $ python script_generator.py [-h] -d <Data_Path> -s <Samplesheet> -A <Slurm_Proj
   #SBATCH arguments are used for specifying your
   preferences for the SLURM job you plan to submit.
 
-|  Arguments     |   Description                                      |
+|  Argument     |   Description                                      |
 |----------------|:--------------------------------------------------:|
 |  -A            |       SLURM Project name.                         |
 |  -J            |        Give a name to this job.                    |
@@ -67,7 +69,7 @@ $ python script_generator.py [-h] -d <Data_Path> -s <Samplesheet> -A <Slurm_Proj
 ### Script Variables:
   Variables about your project (e.g. file paths)
 
-|  Arguments     |   Description                                      |
+|  Argument     |   Description                                      |
 |----------------|:--------------------------------------------------:|
 |  -d, --hiseq-datapath | Path of the raw hiseq data (pref. absolute).|
 | -r, --ref {mm,hg}     | Choose a reference genome [mouse, human].   |
@@ -77,3 +79,16 @@ $ python script_generator.py [-h] -d <Data_Path> -s <Samplesheet> -A <Slurm_Proj
 __NOTE__: If you call the script without arguments it will
       enter the adaptive mode, where you will be asked
       specifically to add each of the necessary inputs. (currently under construction)
+
+
+## Make Deliverables
+Once the projects you were running are done, you may want to deliver the data to someone, or keep them organized for yourself. To do that you can use the `make_deliverable.py` script, which will aggregate the data of the given projects into one folder. (The given projects have to be subject of a common biological project. That means part of the project name should much.)
+
+### Arguments
+| Argument | Description    |
+|----------|:--------------:|
+| -h, --help | show the help message and exits |
+| -v, --version | shows program's version number and exits |
+| -p, --project | Names of the projects you want to include in the deliverable. You can give multiple projects by simply separete them with space. Note that the projects should be part of a bigger biological project. In other words, this part of the name: 10X_YY_NNN_## should be common. |
+| -f, --fastq | If set, it will also include the fastqs in the deliverable. |
+| -o, --output | (Optional) The name of the deliverable to be created. |
