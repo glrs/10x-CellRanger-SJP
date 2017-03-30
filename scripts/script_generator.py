@@ -4,12 +4,12 @@ from __future__ import division
 from __future__ import print_function
 from collections import defaultdict
 from collections import namedtuple
-from math import ceil
 
 import os
 import sys
 import csv
 import stat
+import math
 import errno
 import shutil
 import argparse
@@ -384,11 +384,11 @@ def calculate_plan(samplesheet):
 
     # Calculate the number of mkfastq scripts to be generated
     mkfastq_scripts = len(samplesheet['Lane']) / mpn
-    mkfastq_scripts = int(ceil(mkfastq_scripts))
+    mkfastq_scripts = int(math.ceil(mkfastq_scripts))
 
     # Calculate the number of count scripts to be generated
     count_scripts = len(samplesheet['Sample']) / cpn
-    count_scripts = int(ceil(count_scripts))
+    count_scripts = int(math.ceil(count_scripts))
 
     # Initialize the predefind namedtuple with 2/3 empty lists
     # if count_scripts == 1:
