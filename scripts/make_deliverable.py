@@ -12,7 +12,8 @@ def eval_projects(projects):
         proj = ['_'.join(p.split('_')[2:6]) for p in projects]
 
         # Count how many times the 1st element occurs.
-        # If equal to the list length, then all elements are the same (as should)
+        # If equal to the list length, then all elements
+        # are the same (as should)
         return proj.count(proj[0]) == len(proj)
     except IndexError:
         print("Error! Make sure the project name(s) you gave are valid.")
@@ -32,20 +33,25 @@ parser = argparse.ArgumentParser(
              description=help_descr,
              formatter_class=argparse.RawDescriptionHelpFormatter)
 
-parser.add_argument('-v', '--version',
-                    action='version',
-                    version='%(prog)s 0.1')
+parser.add_argument(
+        '-v', '--version',
+        action='version',
+        version='%(prog)s 0.1')
 
-parser.add_argument('-f', '--fastq', action='store_const', const=True,
-                    help='If set, it will also include the fastqs in the deliverable.')
+parser.add_argument(
+        '-f', '--fastq', action='store_const', const=True,
+        help='If set, it will also include the fastqs in the deliverable.')
 
-parser.add_argument('-p', '--project', nargs='*', required=True,
-                    help='Names of the projects you want to include in the deliverable.\
-                    You can give multiple projects by simply separete them with space.\
-                    Note that the projects should be part of a bigger biological project.\
-                    In other words, this part of the name: 10X_YY_NNN_## should be common.')
+parser.add_argument(
+        '-p', '--project', nargs='*', required=True,
+        help='Names of the projects you want to include in the deliverable.\
+        You can give multiple projects by simply separete them with space.\
+        Note that the projects should be part of a bigger biological project.\
+        In other words, this part of the name: 10X_YY_NNN_## should be common.')
 
-parser.add_argument('-o', '--output', help='(Optional) The name of the deliverable to be created.')
+parser.add_argument(
+        '-o', '--output',
+        help='(Optional) The name of the deliverable to be created.')
 
 args = parser.parse_args()
 
@@ -57,7 +63,8 @@ else:
     exit(1)
 
 if not eval_projects(args.project):
-    print("Error! Make sure the projects are part of a bigger biological project")
+    print("Error! Make sure the projects are \
+            part of a bigger biological project.")
     print("Use --help for more information.")
     exit(1)
 
@@ -91,14 +98,15 @@ for project in args.project:
     source_dir = os.path.join(projects_dir, project + '/', 'counts/')
     print(source_dir)
 
-    p = subprocess.Popen(cmd.format(source_dir + '*', '.'), shell=True).wait()
+    p = subprocess.Popen(cmd.format(source_dir + '*', '.'),
+                        shell=True).wait()
 
     # Copy the fastq files if the fastq argument was set
     if args.fastq:
         source_dir = os.path.join(projects_dir, project + '/', 'fastqs/')
 
-        p = subprocess.Popen(cmd.format(source_dir + '*', args.fastq), shell=True)
-        p.wait()
+        p = subprocess.Popen(cmd.format(source_dir + '*', args.fastq),
+                            shell=True).wait()
 
 def make_deliverable():
     pass

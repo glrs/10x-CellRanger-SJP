@@ -14,18 +14,29 @@ import errno
 import shutil
 import argparse
 import textwrap
+import datetime
 import itertools
 
 
-proj_struct = namedtuple('project', ['root', 'fastqs', 'counts',
-                                        'aggr', 'meta', 'out'])
-node = namedtuple('uppmax_node', ['partition', 'max_cores',
-                                'mkfq_per_node', 'count_per_node'])
+proj_struct = namedtuple('project', [
+                        'root', 'fastqs', 'counts',
+                        'aggr', 'meta', 'out'
+                        ])
 
+node = namedtuple('uppmax_node', [
+                        'partition', 'max_cores',
+                        'mkfq_per_node', 'count_per_node'
+                        ])
+
+scripts_to_gen = namedtuple('scripts_to_gen', [
+                        'mkfastq_plan',
+                        'count_plan',
+                        'aggr_plan'
+                        ])
+
+# Define the nametuple for node
 uppmax_node = node('core', 16, 4, 4)
 
-scripts_to_gen = namedtuple('scripts_to_gen', ['mkfastq_plan',
-                                'count_plan', 'aggr_plan'])
 
 def interactive_input():
     #dirlist = os.listdir('.')
@@ -82,9 +93,13 @@ class CustomHelpFormatter(argparse.HelpFormatter):
                 parts[-1] += ' %s' % args_string
             return ', '.join(parts)
 
+
 # Just to make things a bit nicer on the help output
-class CustomFormatter(argparse.RawDescriptionHelpFormatter, CustomHelpFormatter):
+class CustomFormatter(
+        argparse.RawDescriptionHelpFormatter,
+        CustomHelpFormatter):
     pass
+
 
 def arg_input():
     # Create a text wrapper for the help output text
@@ -93,87 +108,110 @@ def arg_input():
                             replace_whitespace=False)
 
     # Form the usage note text
-    usage_note = ["%(prog)s [-h] -d <Data_Path> -s <Samplesheet>\n",
-                    "\t-A <Uppmax_Project> -J <Jobname> [--qos] [-r {mm,hg}]\n",
-                    "\t[--aggr-norm {mapped,raw,None}] [--version]"]
+    usage_note = [
+                "%(prog)s [-h] -d <Data_Path> -s <Samplesheet>\n",
+                "\t-A <Uppmax_Project> -J <Jobname> [--qos] [-r {mm,hg}]\n",
+                "\t[--aggr-norm {mapped,raw,None}] [--version]"
+                ]
 
     # Form the epiloge text
-    epilog_note = ["NOTE: If you call the script without arguments it will\n",
-                    "     enter the adaptive mode, where you will be asked\n",
-                    "     specifically to add each of the necessary inputs.\n"]
+    epilog_note = [
+                "NOTE: If you call the script without arguments it will\n",
+                "     enter the adaptive mode, where you will be asked\n",
+                "     specifically to add each of the necessary inputs.\n"
+                ]
 
     # Initialize a parser using the CustomFormatter class
     parser = argparse.ArgumentParser(
-                description='Adapt the 10xGenomics Pipeline to your new Project.',
-                formatter_class=CustomFormatter,
-                epilog=" ".join(epilog_note),
-                usage=" ".join(usage_note))
+            description='Adapt the 10xGenomics Pipeline to your new Project.',
+            formatter_class=CustomFormatter,
+            epilog=" ".join(epilog_note),
+            usage=" ".join(usage_note))
 
     # Create an argument group for #SBATCH
-    group_sbatch = parser.add_argument_group('#SBATCH', textwrap.dedent('''
+    group_sbatch = parser.add_argument_group(
+                    '#SBATCH', textwrap.dedent(
+                        """
                         #SBATCH arguments are used for specifying your
-                        preferences for the UPPMAX job you plan to submit.'''))
+                        preferences for the UPPMAX job you plan to submit.
+                        """
+                    ))
 
     # -- Add the arguments for the #SBATCH group --
-    group_sbatch.add_argument('-A', required=True, metavar='',
-                        dest='uppmax_project_name',
-                        help='UPPMAX Project name.')
+    group_sbatch.add_argument(
+                    '-A', required=True, metavar='',
+                    dest='uppmax_project_name',
+                    help='UPPMAX Project name.')
 
-    group_sbatch.add_argument('-J', required=True, metavar='',
-                        dest='job_description',
-                        help='Give a name to this job.')
-    '''
-    group_sbatch.add_argument('-p', choices=['core', 'node'], default='core',
-                        dest='partition',
-                        help='Choose partition.')
+    group_sbatch.add_argument(
+                    '-J', required=True, metavar='',
+                    dest='job_description',
+                    help='Give a name to this job.')
 
-    group_sbatch.add_argument('-n', default=1, type=int, metavar='',
-                        dest='num_cores',
-                        help='No. of cores you will need.')
+    """
+    group_sbatch.add_argument(
+                    '-p', choices=['core', 'node'], default='core',
+                    dest='partition',
+                    help='Choose partition.')
 
-    group_sbatch.add_argument('-N', metavar='', dest='num_nodes',
-                        help='No. of nodes [spreads given cores in several nodes]')
+    group_sbatch.add_argument(
+                    '-n', default=1, type=int, metavar='',
+                    dest='num_cores',
+                    help='No. of cores you will need.')
 
-    group_sbatch.add_argument('-C', choices=['128','256','512'],
-                        dest='ram_memory',
-                        help="Choose memory(GB) (only when you select 'node')")
+    group_sbatch.add_argument(
+                    '-N', metavar='', dest='num_nodes',
+                    help='No. of nodes [spreads given cores in several nodes]')
 
-    group_sbatch.add_argument('-t', default='15:00', metavar='{d-hh:mm:ss}',
-                        dest='time_request',
-                        help='How long to reserve the resources for?')
-    '''
-    group_sbatch.add_argument('-q', '--qos', action='store_const' ,const='short',
-                        dest='use_qos_short',
-                        help='Use it for testing. Max 15mins, 4nodes. \
-                        Very high priority.')
+    group_sbatch.add_argument(
+                    '-C', choices=['128','256','512'],
+                    dest='ram_memory',
+                    help="Choose memory(GB) (only when you select 'node')")
+
+    group_sbatch.add_argument(
+                    '-t', default='15:00', metavar='{d-hh:mm:ss}',
+                    dest='time_request',
+                    help='How long to reserve the resources for?')
+    """
+
+    group_sbatch.add_argument(
+                    '-q', '--qos', action='store_const' ,const='short',
+                    dest='use_qos_short',
+                    help='Use it for testing. Max 15mins, 4nodes. \
+                    Very high priority.')
 
     # Create an argument group for variables related to a project
-    group_vars = parser.add_argument_group('Script Variables',
-                        " ".join(["Variables about your project",
-                                "(e.g. file paths)"]))
+    group_vars = parser.add_argument_group(
+                    'Script Variables',
+                    "Variables about your project (e.g. file paths)")
 
     # -- Add the arguments for the project variables group --
-    group_vars.add_argument('-d', '--hiseq-datapath', required=True, metavar='',
-                        dest='hiseq_datapath',
-                        help='Path of the raw hiseq data (pref. absolute).')
+    group_vars.add_argument(
+                    '-d', '--hiseq-datapath', required=True, metavar='',
+                    dest='hiseq_datapath',
+                    help='Path of the raw hiseq data (pref. absolute).')
 
-    group_vars.add_argument('-r', '--ref', default='mm',
-                        choices=['mm', 'hg'], dest='reference_genome',
-                        help='Choose a reference genome [mouse, human]')
+    group_vars.add_argument(
+                    '-r', '--ref', default='mm',
+                    choices=['mm', 'hg'], dest='reference_genome',
+                    help='Choose a reference genome [mouse, human]')
 
-    group_vars.add_argument('-s', '--samplesheet', required=True, metavar='',
-                        dest='samplesheet_loc',
-                        help='Path of the metadata samplesheet (pref. absolute).')
+    group_vars.add_argument(
+                    '-s', '--samplesheet', required=True, metavar='',
+                    dest='samplesheet_loc',
+                    help='Path of the metadata samplesheet (pref. absolute).')
 
-    group_vars.add_argument('--aggr-norm', choices=['mapped', 'raw', 'None'],
-                        default='mapped', dest='cranger_aggr_norm',
-                        help='Normalization depth across the input libraries.')
+    group_vars.add_argument(
+                    '--aggr-norm', choices=['mapped', 'raw', 'None'],
+                    default='mapped', dest='cranger_aggr_norm',
+                    help='Normalization depth across the input libraries.')
 
 
     # -- The rest, general arguments --
-    parser.add_argument('--version',
-                        action='version',
-                        version='%(prog)s 1.0')
+    parser.add_argument(
+                    '--version',
+                    action='version',
+                    version='%(prog)s 1.0')
 
     # Parse the given arguments
     args = parser.parse_args()
@@ -231,7 +269,8 @@ def run(args):
     # Extract the hiseq project name by keeping the last part, starting
     # from the 2nd char, and the samplesheet name without the extension
     # and combine them to form the project name
-    project_name = hiseq_project.split('_')[-1][1:] + '_' + samplesheet_name[:-4]
+    project_name = hiseq_project.split('_')[-1][1:] \
+                        + '_' + samplesheet_name[:-4]
 
     # Generate the project folder and its subfolders.
     project = build_project_structure(project_name)
@@ -256,7 +295,10 @@ def run(args):
     # if len(run_plan.aggr_plan) > 2:
     if  run_plan.aggr_plan:
         # Create a CSV file with the counts to be used by the 'cellranger aggr'
-        args_dict['aggr_csv_meta_file'] = create_aggr_csv(project, samplesheet_dict)
+        args_dict['aggr_csv_meta_file'] = create_aggr_csv(
+                                                    project,
+                                                    samplesheet_dict)
+
         args_dict['aggregation_id'] = 'AGGR_' + project_name
 
     # Get the job description in a var to use it as prefix in the for loop
@@ -275,7 +317,8 @@ def run(args):
             # Get the script names for each process
             scr_names[i].append(scr_name)
 
-            # Append the SBATCH job description with the script name (no extension)
+            # Append the SBATCH job description with
+            # the script name (no extension)
             args.job_description = job_descr + '_' + scr_name[:-3]
 
             # Assign the script name to be used
@@ -353,8 +396,10 @@ def calculate_plan(samplesheet):
     # else:
     plan = scripts_to_gen([], [], [])
 
-    cranger_info = namedtuple('cr_info', ['scr_name', 'bash_list', 'localcores',
-                                        'localmem', 'runtime', 'template'])
+    cranger_info = namedtuple('cr_info', [
+                                'scr_name', 'bash_list', 'localcores',
+                                'localmem', 'runtime', 'template'
+                                ])
 
     # Generate the names for the mkfastq scripts
     for i in range(mkfastq_scripts):
@@ -394,8 +439,8 @@ def calculate_plan(samplesheet):
         runtime = calc_run_time(len(samples), 'count_runtime')
 
         count_info = cranger_info(script_name, samples_str,
-                                    cores_per_sample, mem_per_sample,
-                                    runtime, 'count_template.bash')
+                                cores_per_sample, mem_per_sample,
+                                runtime, 'count_template.bash')
 
         plan.count_plan.append(count_info)
 
@@ -404,10 +449,12 @@ def calculate_plan(samplesheet):
         cores = uppmax_node.max_cores
         mem = uppmax_node.max_cores * 7
 
-        runtime = calc_run_time(len(samplesheet['Sample']), 'aggr_runtime')
+        runtime = calc_run_time(len(samplesheet['Sample']),
+                                'aggr_runtime')
 
-        aggr_info = cranger_info('aggregation.sh', None, cores,
-                                    mem, runtime, 'aggr_template.bash')
+        aggr_info = cranger_info('aggregation.sh', None,
+                                cores, mem, runtime,
+                                'aggr_template.bash')
 
         plan.aggr_plan.append(aggr_info)
 
@@ -415,9 +462,6 @@ def calculate_plan(samplesheet):
 
 
 def calc_run_time(iters, time_tag):
-
-    import datetime
-
     if time_tag == 'mkfastq_runtime':
         secs = 486 * iters + 3771 #+ 7200
 
@@ -459,7 +503,7 @@ def create_aggr_csv(project, samplesheet, fieldnames=None):
 
         writer = csv.DictWriter(f, fieldnames=fieldnames)
 
-        # writer.writeheader() # This added on Python 2.7, so it won't work on 2.6
+        # writer.writeheader() -> added on Python 2.7; it won't work on 2.6
         writer.writerow(dict((fn, fn) for fn in writer.fieldnames))
 
         for sample in samplesheet['Sample']:
@@ -467,7 +511,10 @@ def create_aggr_csv(project, samplesheet, fieldnames=None):
             mol_path = '../counts/' + sample + '/outs/molecule_info.h5'
 
             # Write the row to the .csv output file
-            writer.writerow({fieldnames[0]: sample, fieldnames[1]: mol_path})
+            writer.writerow({
+                        fieldnames[0]: sample,
+                        fieldnames[1]: mol_path
+                        })
 
     return os.path.basename(meta_csv)
 
@@ -497,7 +544,9 @@ def generate_script(args_dict, template):
         temp = fix_path(template)
 
         if not temp:
-            print("Could not find the template file '{}' ".format(template), end='')
+            print("Could not find the template file \
+                    '{0}' ".format(template), end='')
+
             print("in the scripts folder. Exiting...")
             exit(1)
         else:
@@ -508,7 +557,8 @@ def generate_script(args_dict, template):
     #     or args_dict['output'] == "mkfastq_template.bash" \
     #     or args_dict['output'] == "count_template.bash":
     #
-    #     print("The output name should NOT be the same as the template script.")
+    #     print("The output name should NOT be \
+    #             the same as the template script.")
     #     exit(3)
 
     # Open the template script in read mode
@@ -541,10 +591,13 @@ def generate_script(args_dict, template):
                         # Get the next line and strip any extra whitespace
                         next_line = next(template_buf).strip()
 
-                        # Is the last char of the line a quotation mark or an '='?
+                        # Is the last char of the line a quotation mark or a '='?
                         if next_line[-1:] in ('"', "'"):
                             # Place the argument value between quotation marks
-                            line = next_line[:-1] + str(arg_val) + next_line[-1:] + '\n'
+                            line = next_line[:-1] \
+                                    + str(arg_val) \
+                                    + next_line[-1:] + '\n'
+
                         elif next_line[-1:] is '=':
                             # Place the argument value next to '=' without space
                             line = next_line + str(arg_val) + '\n'
@@ -596,15 +649,17 @@ def build_project_structure(project_name):
 
     while os.path.exists(project_dir):
         print("A folder with the given project name, already exists.")
-        project_dir = '_'.join(project_dir.split('_')[:7]) + '_' + str(count.next())
+        project_dir = '_'.join(project_dir.split('_')[:7]) \
+                        + '_' + str(count.next())
+
         print("Trying: " + project_dir)
 
     # Form the name of the necessary folders in the project dir
     fastq_dir = project_dir + '/fastqs/'
     count_dir = project_dir + '/counts/'
-    meta_dir  = project_dir + '/metadata/'
-    out_dir   = project_dir + '/slurm_out/'
-    aggr_dir  = project_dir + '/aggregation/'
+    meta_dir = project_dir + '/metadata/'
+    out_dir = project_dir + '/slurm_out/'
+    aggr_dir = project_dir + '/aggregation/'
 
     # Try to create the project folder
     try:
@@ -620,7 +675,8 @@ def build_project_structure(project_name):
         os.mkdir(out_dir)
 
     # Instantiate the 'proj_struct' namedtuple for the project structure
-    project = proj_struct(project_dir  + '/', fastq_dir, count_dir,
+    project = proj_struct(project_dir  + '/',
+                            fastq_dir, count_dir,
                             aggr_dir, meta_dir, out_dir)
 
     # Change directory back to the script's original dir
@@ -657,7 +713,9 @@ def build_run_file(file_names, output_name=None):
         temp = fix_path(template)
 
         if not temp:
-            print("Could not find the template file '{}' ".format(template), end='')
+            print("Could not find the template file \
+                    '{0}' ".format(template), end='')
+
             print("in the scripts folder. Exiting...")
             exit(1)
         else:
@@ -668,7 +726,8 @@ def build_run_file(file_names, output_name=None):
     cnt_names = file_names[1]
     aggr_names = file_names[2]
 
-    # Get the number of scripts for each process (for aggregation is always 1)
+    # Get the number of scripts for each process
+    # (for aggregation is always 1)
     mk_number = len(mkfq_names)
     cnt_number = len(cnt_names)
 
@@ -715,7 +774,8 @@ def build_run_file(file_names, output_name=None):
         f.write('\n')
 
         # Get the job dependencies for the aggregation process
-        dep_jobs = job_dependencies(mk_number + 1, mk_number + cnt_number + 1)
+        dep_jobs = job_dependencies(mk_number + 1,
+                                    mk_number + cnt_number + 1)
 
         # Form and Write the aggr sbatch calls to the output file
         for aggr_scr in aggr_names:
