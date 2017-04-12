@@ -18,6 +18,9 @@ import datetime
 import itertools
 
 
+__version__ = '1.0.1'
+
+
 proj_struct = namedtuple('project', [
                         'root', 'fastqs', 'counts',
                         'aggr', 'meta', 'out'
@@ -211,7 +214,7 @@ def arg_input():
     parser.add_argument(
                     '--version',
                     action='version',
-                    version='%(prog)s 1.0')
+                    version='%(prog)s {0}'.format(__version__))
 
     # Parse the given arguments
     args = parser.parse_args()
@@ -859,7 +862,25 @@ def symlink_force(target, link_name):
             raise e
 
 
-if __name__ == "__main__":
+# if __name__ == "__main__":
+#     # Move the working directory to the local root folder
+#     os.chdir(os.path.dirname(sys.path[0]))
+#
+#     # Check whether the 'projects' folder exists for localization
+#     if not os.path.exists(os.getcwd() + '/projects'):
+#         print("Directory 'projects' could not be find in the current directory.")
+#         print("Make sure the script is located in the 'scripts' folder.")
+#         exit(1)
+#
+#     # print(len(sys.argv))
+#     if len(sys.argv) <= 1:
+#         args = interactive_input()
+#     else:
+#         args = arg_input()
+#
+#     run(args)
+
+def main():
     # Move the working directory to the local root folder
     os.chdir(os.path.dirname(sys.path[0]))
 
@@ -876,3 +897,7 @@ if __name__ == "__main__":
         args = arg_input()
 
     run(args)
+
+
+if __name__ == "__main__":
+    main()
