@@ -37,7 +37,7 @@ Make sure your folder structure looks like this:
   |
   +-- references/
   |
-  +-- scripts/
+  `-- scripts/
 ```
 Make sure your cellranger installation is under the `cellranger-1.2.0` directory. Place the references in the `references` folder. Then download the python script and the template files in the `scripts` folder.
 
@@ -49,10 +49,10 @@ $ python script_generator.py [-h] -d <Data_Path> -s <Samplesheet> -A <Slurm_Proj
 
 ### General arguments
 
-|  Argument     |   Description                                |
+|  Argument      |   Description                                |
 |----------------|:--------------------------------------------:|
-|  -h, --help    |        shows the help message and exits        |
-|  --version     |        shows program's version number and exits|
+|  -h, --help    |     shows the help message and exits         |
+|  --version     |     shows program's version number and exits |
 
 
 ### #SBATCH arguments
@@ -60,20 +60,20 @@ $ python script_generator.py [-h] -d <Data_Path> -s <Samplesheet> -A <Slurm_Proj
   #SBATCH arguments are used for specifying your
   preferences for the SLURM job you plan to submit.
 
-|  Argument     |   Description                                      |
-|----------------|:--------------------------------------------------:|
-|  -A            |       SLURM Project name.                         |
-|  -J            |        Give a name to this job.                    |
+|  Argument      |   Description                                              |
+|----------------|:----------------------------------------------------------:|
+|  -A            |    SLURM Project name.                                     |
+|  -J            |    Give a name to this job.                                |
 |  -q, --qos     |Use it for testing. Max 15mins, 4nodes. Very high priority. |
 
 ### Script Variables:
   Variables about your project (e.g. file paths)
 
-|  Argument     |   Description                                      |
-|----------------|:--------------------------------------------------:|
-|  -d, --hiseq-datapath | Path of the raw hiseq data (pref. absolute).|
-| -r, --ref {mm,hg}     | Choose a reference genome [mouse, human].   |
-| -s, --samplesheet     |Path of the metadata samplesheet (pref. absolute).|
+|  Argument             |   Description                                      |
+|-----------------------|:--------------------------------------------------:|
+|  -d, --hiseq-datapath | Path of the raw hiseq data (pref. absolute).       |
+| -r, --ref {mm,hg}     | Choose a reference genome [mouse, human].          |
+| -s, --samplesheet     | Path of the metadata samplesheet (pref. absolute). |
 | --aggr-norm {mapped,raw,None} | Normalization depth across the input libraries.|
 
 __NOTE__: If you call the script without arguments it will
@@ -90,12 +90,12 @@ Once the projects you were running are done, you may want to deliver the data to
 ```
 
 ### Parameters
-| Argument       | Description    |
-|:---------------|:--------------|
-| -h, --help     | show the help message and exits |
-| -v, --version  | shows program's version number and exits |
-| -p, --project  | Names of the projects you want to include in the deliverable. |
-| -f, --fastq    | If set, it will also include the fastqs in the deliverable. |
+| Argument       | Description                                           |
+|:---------------|:------------------------------------------------------|
+| -h, --help     | show the help message and exits                       |
+| -v, --version  | shows program's version number and exits              |
+| -p, --project  | Names of the projects you want to include in the deliverable.|
+| -f, --fastq    | If set, it will also include the fastqs in the deliverable.  |
 | -o, --output   | (Optional) The name of the deliverable to be created. |
 
 __NOTE__:
