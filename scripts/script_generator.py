@@ -882,7 +882,8 @@ def symlink_force(target, link_name):
 
 def main():
     # Move the working directory to the local root folder
-    os.chdir(os.path.dirname(sys.path[0]))
+    # NOTE: Use when you call this script by running a link (softlink).
+    # os.chdir(os.path.dirname(sys.path[0]))
 
     # Check whether the 'projects' folder exists for localization
     if not os.path.exists(os.getcwd() + '/projects'):

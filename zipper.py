@@ -1,9 +1,9 @@
 #!/usr/bin/python
 
 import os
+import re
 import zipfile
 import fnmatch
-import re
 import textwrap
 import argparse
 
